@@ -1,0 +1,88 @@
+import logging, asyncio
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, Header, HTTPException, Depends, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+from .core.settings import settings
+from .core.cache import init_cache
+from .core.database import init_db
+from .core.alerts import alert_worker
+from .services.bitget import candles          # fetch_df
+from .routes import api_router
+
+log = logging.getLogger("uvicorn")
+log.setLevel(settings.LOG_LEVEL)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    await init_cache()
+    init_db()
+    alert_task = asyncio.create_task(alert_worker(lambda sym: candles(sym, limit=50)))
+    
+    yield
+    
+    # Shutdown
+    alert_task.cancel()
+    try:
+        await alert_task
+    except asyncio.CancelledError:
+        pass
+
+app = FastAPI(
+    title="Crypto Signal API",
+    version="2.0.0",
+    description="API für Krypto-Trading-Signale mit technischen Indikatoren, Marktdaten und Alerts",
+    lifespan=lifespan
+)
+
+# CORS (CustomGPT + ChatGPT)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://chat.openai.com",
+        "https://chatgpt.com",
+        "https://custom-gpt.ai",
+        "https://customgpt.ai",
+        "https://api.openai.com",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+def verify(request: Request):
+    # Accept both X-API-Key and x-api-key header variants
+    api_key = request.headers.get("X-API-Key") or request.headers.get("x-api-key")
+    if not api_key or api_key != settings.API_KEY:
+        raise HTTPException(status_code=401, detail="invalid key")
+
+# Add public health endpoint (no auth required)
+@app.get("/health")
+async def public_health():
+    """Public health check endpoint for load balancer and monitoring"""
+    return {
+        "status": "ok",
+        "version": "2.0.0",
+        "environment": settings.ENVIRONMENT,
+        "message": "API is running"
+    }
+
+app.include_router(api_router, dependencies=[Depends(verify)])
+
+# Global exception handler for debugging
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    log.error(f"Global exception: {type(exc).__name__}: {str(exc)}")
+    log.error(f"Request: {request.method} {request.url}")
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": {
+                "code": "INTERNAL_ERROR",
+                "message": "Internal server error occurred",
+                "details": str(exc) if settings.DEBUG else "Contact support"
+            }
+        }
+    )

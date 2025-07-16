@@ -1,0 +1,686 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Crypto Analyzer GPT API",
+    "description": "Professional cryptocurrency technical analysis API with real-time market data, technical indicators, sentiment analysis, and news aggregation for CustomGPT integration.",
+    "version": "2.0.0",
+    "contact": {
+      "name": "Crypto Analyzer GPT",
+      "url": "https://github.com/ghiemer/crypto-analyzer-gpt"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://your-crypto-analyzer-app.onrender.com",
+      "description": "Production server"
+    }
+  ],
+  "security": [
+    {
+      "ApiKeyAuth": []
+    }
+  ],
+  "paths": {
+    "/candles": {
+      "get": {
+        "summary": "Get candlestick data with technical indicators",
+        "description": "Retrieve OHLCV candlestick data with comprehensive technical indicators for cryptocurrency analysis. This is the primary endpoint for technical analysis.",
+        "operationId": "getCandleData",
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "query",
+            "required": true,
+            "description": "Trading pair symbol (e.g., BTCUSDT, ETHUSDT)",
+            "schema": {
+              "type": "string",
+              "example": "BTCUSDT"
+            }
+          },
+          {
+            "name": "indicators",
+            "in": "query",
+            "required": false,
+            "description": "Comma-separated list of technical indicators or 'all' for all indicators",
+            "schema": {
+              "type": "string",
+              "default": "all",
+              "example": "rsi,sma,ema,macd,bb,stoch"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Number of candles to retrieve (max 1000)",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000,
+              "default": 200
+            }
+          },
+          {
+            "name": "granularity",
+            "in": "query",
+            "required": false,
+            "description": "Timeframe for candlestick data",
+            "schema": {
+              "type": "string",
+              "enum": ["1min", "3min", "5min", "15min", "30min", "1h", "2h", "4h", "6h", "12h", "1day", "3day", "1week", "1M"],
+              "default": "1h"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response with candlestick data and indicators",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CandleResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - invalid parameters"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/feargreed": {
+      "get": {
+        "summary": "Get Fear & Greed Index",
+        "description": "Retrieve the current Fear & Greed Index value and historical data for market sentiment analysis.",
+        "operationId": "getFearGreedIndex",
+        "responses": {
+          "200": {
+            "description": "Successful response with Fear & Greed Index data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FearGreedResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/news": {
+      "get": {
+        "summary": "Get cryptocurrency news",
+        "description": "Retrieve recent news articles for a specific cryptocurrency to understand market sentiment and potential price catalysts.",
+        "operationId": "getCryptoNews",
+        "parameters": [
+          {
+            "name": "coin",
+            "in": "query",
+            "required": true,
+            "description": "Cryptocurrency name (e.g., bitcoin, ethereum, cardano)",
+            "schema": {
+              "type": "string",
+              "example": "bitcoin"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Number of news articles to retrieve",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response with news articles",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NewsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - invalid coin parameter"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/perp/funding": {
+      "get": {
+        "summary": "Get perpetual futures funding rates",
+        "description": "Retrieve funding rates for perpetual futures contracts to assess market sentiment and potential price pressure.",
+        "operationId": "getFundingRates",
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "query",
+            "required": true,
+            "description": "Trading pair symbol for futures (e.g., BTCUSDT)",
+            "schema": {
+              "type": "string",
+              "example": "BTCUSDT"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response with funding rate data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FundingResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - invalid symbol"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/perp/oi": {
+      "get": {
+        "summary": "Get open interest data",
+        "description": "Retrieve open interest data for perpetual futures to analyze market positioning and potential liquidation levels.",
+        "operationId": "getOpenInterest",
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "query",
+            "required": true,
+            "description": "Trading pair symbol for futures (e.g., BTCUSDT)",
+            "schema": {
+              "type": "string",
+              "example": "BTCUSDT"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response with open interest data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenInterestResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - invalid symbol"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/orderbook": {
+      "get": {
+        "summary": "Get orderbook data",
+        "description": "Retrieve current orderbook data to analyze support/resistance levels and market depth.",
+        "operationId": "getOrderbook",
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "query",
+            "required": true,
+            "description": "Trading pair symbol (e.g., BTCUSDT)",
+            "schema": {
+              "type": "string",
+              "example": "BTCUSDT"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Number of orderbook levels to retrieve",
+            "schema": {
+              "type": "integer",
+              "minimum": 5,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response with orderbook data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderbookResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - invalid parameters"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-api-key",
+        "description": "API key for authentication (accepts both X-API-Key and x-api-key)"
+      }
+    },
+    "schemas": {
+      "CandleResponse": {
+        "type": "object",
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "example": "BTCUSDT"
+          },
+          "timeframe": {
+            "type": "string",
+            "example": "1h"
+          },
+          "candles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Candle"
+            }
+          },
+          "indicators": {
+            "$ref": "#/components/schemas/TechnicalIndicators"
+          },
+          "analysis": {
+            "$ref": "#/components/schemas/TechnicalAnalysis"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Candle": {
+        "type": "object",
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "open": {
+            "type": "number",
+            "format": "float"
+          },
+          "high": {
+            "type": "number",
+            "format": "float"
+          },
+          "low": {
+            "type": "number",
+            "format": "float"
+          },
+          "close": {
+            "type": "number",
+            "format": "float"
+          },
+          "volume": {
+            "type": "number",
+            "format": "float"
+          }
+        }
+      },
+      "TechnicalIndicators": {
+        "type": "object",
+        "properties": {
+          "rsi": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "description": "Relative Strength Index values"
+          },
+          "sma": {
+            "type": "object",
+            "properties": {
+              "sma_20": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                }
+              },
+              "sma_50": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                }
+              },
+              "sma_200": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "ema": {
+            "type": "object",
+            "properties": {
+              "ema_12": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                }
+              },
+              "ema_26": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "macd": {
+            "type": "object",
+            "properties": {
+              "macd_line": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                }
+              },
+              "signal_line": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                }
+              },
+              "histogram": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "bollinger_bands": {
+            "type": "object",
+            "properties": {
+              "upper": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                }
+              },
+              "middle": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                }
+              },
+              "lower": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "stochastic": {
+            "type": "object",
+            "properties": {
+              "k_percent": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                }
+              },
+              "d_percent": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                }
+              }
+            }
+          }
+        }
+      },
+      "TechnicalAnalysis": {
+        "type": "object",
+        "properties": {
+          "trend": {
+            "type": "string",
+            "enum": ["BULLISH", "BEARISH", "NEUTRAL"]
+          },
+          "momentum": {
+            "type": "string",
+            "enum": ["STRONG_BUY", "BUY", "NEUTRAL", "SELL", "STRONG_SELL"]
+          },
+          "support_levels": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "resistance_levels": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "current_price": {
+            "type": "number",
+            "format": "float"
+          },
+          "rsi_signal": {
+            "type": "string",
+            "enum": ["OVERSOLD", "OVERBOUGHT", "NEUTRAL"]
+          },
+          "macd_signal": {
+            "type": "string",
+            "enum": ["BULLISH", "BEARISH", "NEUTRAL"]
+          }
+        }
+      },
+      "FearGreedResponse": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Current Fear & Greed Index value"
+          },
+          "classification": {
+            "type": "string",
+            "enum": ["Extreme Fear", "Fear", "Neutral", "Greed", "Extreme Greed"]
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "previous_value": {
+            "type": "integer",
+            "description": "Previous day's value"
+          },
+          "change": {
+            "type": "integer",
+            "description": "Change from previous day"
+          }
+        }
+      },
+      "NewsResponse": {
+        "type": "object",
+        "properties": {
+          "coin": {
+            "type": "string",
+            "example": "bitcoin"
+          },
+          "articles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NewsArticle"
+            }
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "NewsArticle": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "published_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "source": {
+            "type": "string"
+          },
+          "sentiment": {
+            "type": "string",
+            "enum": ["POSITIVE", "NEGATIVE", "NEUTRAL"]
+          }
+        }
+      },
+      "FundingResponse": {
+        "type": "object",
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "example": "BTCUSDT"
+          },
+          "funding_rate": {
+            "type": "number",
+            "format": "float",
+            "description": "Current funding rate as percentage"
+          },
+          "next_funding_time": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "predicted_funding_rate": {
+            "type": "number",
+            "format": "float"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "OpenInterestResponse": {
+        "type": "object",
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "example": "BTCUSDT"
+          },
+          "open_interest": {
+            "type": "number",
+            "format": "float",
+            "description": "Total open interest in base currency"
+          },
+          "open_interest_value": {
+            "type": "number",
+            "format": "float",
+            "description": "Total open interest in USD"
+          },
+          "change_24h": {
+            "type": "number",
+            "format": "float",
+            "description": "24h change in open interest"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "OrderbookResponse": {
+        "type": "object",
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "example": "BTCUSDT"
+          },
+          "bids": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderbookLevel"
+            },
+            "description": "Buy orders sorted by price descending"
+          },
+          "asks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderbookLevel"
+            },
+            "description": "Sell orders sorted by price ascending"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "OrderbookLevel": {
+        "type": "object",
+        "properties": {
+          "price": {
+            "type": "number",
+            "format": "float"
+          },
+          "quantity": {
+            "type": "number",
+            "format": "float"
+          },
+          "total": {
+            "type": "number",
+            "format": "float",
+            "description": "Cumulative quantity at this level"
+          }
+        }
+      }
+    }
+  }
+}

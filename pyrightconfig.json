@@ -1,0 +1,24 @@
+{
+    "include": [
+        "app"
+    ],
+    "exclude": [
+        "**/__pycache__",
+        ".venv",
+        ".git"
+    ],
+    "reportMissingImports": true,
+    "reportMissingTypeStubs": false,
+    "pythonVersion": "3.11",
+    "pythonPlatform": "Darwin",
+    "executionEnvironments": [
+        {
+            "root": "app",
+            "pythonVersion": "3.11",
+            "pythonPlatform": "Darwin",
+            "extraPaths": [
+                "/Users/gabrielhiemer/.pyenv/versions/3.11.3/envs/crypto-analyzer-gpt/lib/python3.11/site-packages"
+            ]
+        }
+    ]
+}
