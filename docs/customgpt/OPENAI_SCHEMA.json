@@ -21,6 +21,161 @@
     }
   ],
   "paths": {
+    "/telegram/send": {
+      "post": {
+        "summary": "Send message to Telegram",
+        "description": "Send a general message to the configured Telegram chat for notifications and alerts.",
+        "operationId": "sendTelegramMessage",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TelegramMessage"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Message sent successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Message sent successfully"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Telegram bot not configured"
+          },
+          "500": {
+            "description": "Failed to send message"
+          }
+        }
+      }
+    },
+    "/telegram/signal": {
+      "post": {
+        "summary": "Send trading signal to Telegram",
+        "description": "Send a formatted trading signal with entry, targets, and stop loss to Telegram.",
+        "operationId": "sendTradingSignal",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TradingSignal"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Trading signal sent successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Trading signal sent successfully"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Telegram bot not configured"
+          },
+          "500": {
+            "description": "Failed to send signal"
+          }
+        }
+      }
+    },
+    "/telegram/alert": {
+      "post": {
+        "summary": "Send price alert to Telegram",
+        "description": "Send a price alert notification to Telegram for breakouts, support/resistance levels, or RSI extremes.",
+        "operationId": "sendPriceAlert",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "symbol": {
+                    "type": "string",
+                    "example": "BTCUSDT"
+                  },
+                  "current_price": {
+                    "type": "number",
+                    "example": 45000.50
+                  },
+                  "alert_type": {
+                    "type": "string",
+                    "enum": ["BREAKOUT", "SUPPORT", "RESISTANCE", "RSI_EXTREME"],
+                    "example": "BREAKOUT"
+                  },
+                  "details": {
+                    "type": "string",
+                    "example": "Price broke above resistance at $44,500"
+                  }
+                },
+                "required": ["symbol", "current_price", "alert_type"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Price alert sent successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Price alert sent successfully"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Telegram bot not configured"
+          },
+          "500": {
+            "description": "Failed to send alert"
+          }
+        }
+      }
+    },
     "/candles": {
       "get": {
         "summary": "Get candlestick data with technical indicators",
@@ -680,6 +835,120 @@
             "description": "Cumulative quantity at this level"
           }
         }
+      },
+      "TelegramMessage": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "The message to send to Telegram",
+            "example": "📊 BTC analysis complete. Current price: $45,000. Technical indicators suggest bullish momentum."
+          },
+          "analysis_type": {
+            "type": "string",
+            "default": "general",
+            "description": "Type of analysis",
+            "example": "technical"
+          },
+          "symbol": {
+            "type": "string",
+            "description": "Trading pair symbol",
+            "example": "BTCUSDT"
+          },
+          "signal": {
+            "type": "string",
+            "description": "Trading signal",
+            "example": "BUY"
+          },
+          "confidence": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Confidence level",
+            "example": 85
+          },
+          "entry_price": {
+            "type": "number",
+            "description": "Entry price",
+            "example": 45000.50
+          },
+          "target_price": {
+            "type": "number",
+            "description": "Target price",
+            "example": 48000.00
+          },
+          "stop_loss": {
+            "type": "number",
+            "description": "Stop loss price",
+            "example": 42000.00
+          }
+        },
+        "required": ["message"]
+      },
+      "TradingSignal": {
+        "type": "object",
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "description": "Trading pair symbol",
+            "example": "BTCUSDT"
+          },
+          "signal": {
+            "type": "string",
+            "enum": ["BUY", "SELL", "HOLD"],
+            "description": "Trading signal direction",
+            "example": "BUY"
+          },
+          "confidence": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Confidence level (0-100)",
+            "example": 85
+          },
+          "current_price": {
+            "type": "number",
+            "description": "Current market price",
+            "example": 45000.50
+          },
+          "entry_price": {
+            "type": "number",
+            "description": "Recommended entry price",
+            "example": 44800.00
+          },
+          "target_1": {
+            "type": "number",
+            "description": "First target price",
+            "example": 46500.00
+          },
+          "target_2": {
+            "type": "number",
+            "description": "Second target price",
+            "example": 48000.00
+          },
+          "stop_loss": {
+            "type": "number",
+            "description": "Stop loss price",
+            "example": 42000.00
+          },
+          "risk_reward": {
+            "type": "number",
+            "description": "Risk to reward ratio",
+            "example": 2.5
+          },
+          "analysis": {
+            "type": "string",
+            "description": "Detailed analysis explanation",
+            "example": "RSI shows oversold conditions, MACD bullish crossover, price broke above resistance"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Signal timestamp",
+            "example": "2025-01-15T14:30:00Z"
+          }
+        },
+        "required": ["symbol", "signal", "confidence", "current_price", "entry_price", "target_1", "target_2", "stop_loss", "risk_reward", "analysis", "timestamp"]
       }
     }
   }

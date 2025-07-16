@@ -9,7 +9,7 @@ from .core.cache import init_cache
 from .core.database import init_db
 from .core.alerts import alert_worker
 from .services.bitget import candles          # fetch_df
-from .routes import api_router
+from .routes import api_router, telegram
 
 log = logging.getLogger("uvicorn")
 log.setLevel(settings.LOG_LEVEL)
@@ -70,6 +70,7 @@ async def public_health():
     }
 
 app.include_router(api_router, dependencies=[Depends(verify)])
+app.include_router(telegram.router)
 
 # Global exception handler for debugging
 @app.exception_handler(Exception)

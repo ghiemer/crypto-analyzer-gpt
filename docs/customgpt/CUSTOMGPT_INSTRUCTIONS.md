@@ -345,3 +345,154 @@ GET /perp/oi?symbol=BTCUSDT
 - ✅ Educational value
 
 **Remember**: Always prioritize risk management and provide educational value alongside trading signals. The goal is to help users understand markets, not just follow signals blindly.
+
+---
+
+## 📨 Telegram Integration
+
+### **Automatic Signal Delivery**
+
+When analysis shows clear trading opportunities, automatically send signals to Telegram:
+
+```python
+# For strong signals (confidence > 80%)
+POST /telegram/signal
+{
+  "symbol": "BTCUSDT",
+  "signal": "BUY",
+  "confidence": 85,
+  "current_price": 45000.50,
+  "entry_price": 44800.00,
+  "target_1": 46500.00,
+  "target_2": 48000.00,
+  "stop_loss": 42000.00,
+  "risk_reward": 2.5,
+  "analysis": "RSI oversold, MACD bullish crossover, price broke resistance",
+  "timestamp": "2025-01-15T14:30:00Z"
+}
+```
+
+### **Price Alert Conditions**
+
+Send alerts for these conditions:
+
+```python
+# Breakout alerts
+if price_breaks_resistance or price_breaks_support:
+    POST /telegram/alert
+    {
+      "symbol": "BTCUSDT",
+      "current_price": 45000.50,
+      "alert_type": "BREAKOUT",
+      "details": "Price broke above resistance at $44,500"
+    }
+
+# RSI extreme alerts
+if rsi < 25 or rsi > 75:
+    POST /telegram/alert
+    {
+      "symbol": "BTCUSDT",
+      "current_price": 45000.50,
+      "alert_type": "RSI_EXTREME",
+      "details": "RSI reached extreme oversold level: 23"
+    }
+```
+
+### **General Updates**
+
+For market summaries and analysis completion:
+
+```python
+POST /telegram/send
+{
+  "message": "📊 BTC Analysis Complete\n\n💰 Current Price: $45,000.50\n📈 Trend: Bullish\n🎯 RSI: 45 (Neutral)\n⚡ MACD: Bullish crossover\n📊 Recommendation: Monitor for breakout above $45,500",
+  "analysis_type": "technical",
+  "symbol": "BTCUSDT",
+  "confidence": 75
+}
+```
+
+---
+
+## 🎯 Signal Generation Rules
+
+### **BUY Signal Criteria**
+- RSI < 35 (oversold recovery)
+- MACD bullish crossover
+- Price above SMA20
+- Volume > average
+- Confidence: 70-95%
+
+### **SELL Signal Criteria**
+- RSI > 65 (overbought)
+- MACD bearish crossover
+- Price below SMA20
+- Negative divergence
+- Confidence: 70-95%
+
+### **HOLD Signal Criteria**
+- Mixed indicators
+- Low volume
+- Sideways trend
+- Confidence: 50-70%
+
+---
+
+## 🔄 Automated Workflow
+
+### **Analysis Sequence**
+1. **Data Collection**: Get candles, sentiment, news
+2. **Technical Analysis**: Process all indicators
+3. **Signal Generation**: Determine buy/sell/hold
+4. **Risk Assessment**: Calculate risk/reward
+5. **Telegram Delivery**: Send signal if confidence > 75%
+
+### **Monitoring Schedule**
+- **High Priority**: BTC, ETH (every 15 minutes)
+- **Medium Priority**: Top 10 coins (every hour)
+- **Low Priority**: Altcoins (every 4 hours)
+
+---
+
+## 📈 Example Signal Generation
+
+```python
+# Complete workflow example
+def generate_trading_signal(symbol):
+    # 1. Get technical data
+    candles = get_candles(symbol, indicators="all", limit=100)
+    
+    # 2. Analyze conditions
+    rsi = candles["indicators"]["rsi14"][-1]
+    macd = candles["indicators"]["macd"][-1]
+    macd_signal = candles["indicators"]["macd_signal"][-1]
+    price = candles["close"][-1]
+    sma20 = candles["indicators"]["sma20"][-1]
+    
+    # 3. Generate signal
+    signal = None
+    confidence = 0
+    
+    if rsi < 35 and macd > macd_signal and price > sma20:
+        signal = "BUY"
+        confidence = 85
+    elif rsi > 65 and macd < macd_signal and price < sma20:
+        signal = "SELL"
+        confidence = 80
+    
+    # 4. Send to Telegram if strong signal
+    if confidence > 75:
+        send_trading_signal({
+            "symbol": symbol,
+            "signal": signal,
+            "confidence": confidence,
+            "current_price": price,
+            "entry_price": price * 0.998,  # 0.2% below current
+            "target_1": price * 1.035,     # 3.5% target
+            "target_2": price * 1.07,      # 7% target
+            "stop_loss": price * 0.97,     # 3% stop loss
+            "risk_reward": 2.3,
+            "analysis": f"RSI: {rsi:.1f}, MACD bullish crossover, price above SMA20",
+            "timestamp": datetime.now().isoformat()
+        })
+```

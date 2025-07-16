@@ -21,7 +21,8 @@ crypto-analyzer-gpt/
 │   │   ├── misc.py             # Utility endpoints
 │   │   ├── news.py             # News endpoints
 │   │   ├── orderbook.py        # Orderbook endpoints
-│   │   └── perp.py             # Perpetual futures endpoints
+│   │   ├── perp.py             # Perpetual futures endpoints
+│   │   └── telegram.py         # Telegram bot endpoints
 │   ├── 📁 services/            # External services
 │   │   ├── __init__.py
 │   │   ├── bitget.py           # Bitget API integration
@@ -46,11 +47,13 @@ crypto-analyzer-gpt/
 │   │   ├── trading_psychology.md
 │   │   └── fundamental_analysis.md
 │   ├── CHANGELOG.md            # Version history
-│   └── CONTRIBUTING.md         # Contribution guidelines
+│   ├── CONTRIBUTING.md         # Contribution guidelines
+│   └── TELEGRAM_INTEGRATION.md # Telegram bot setup guide
 ├── 📁 tests/                   # Test suite
 │   ├── __init__.py
 │   ├── test_api.py             # API endpoint tests
 │   ├── test_imports.py         # Import validation
+│   ├── test_telegram.py        # Telegram integration tests
 │   └── stubs.py                # Test utilities
 ├── 📁 .vscode/                 # VS Code configuration
 │   ├── launch.json
@@ -108,6 +111,7 @@ crypto-analyzer-gpt/
 - **News**: Aggregated crypto news with sentiment analysis
 - **Perpetual Futures**: Funding rates and open interest
 - **Alerts**: Custom alert management
+- **Telegram**: Signal delivery and notification system
 
 ### Knowledge Base (`/docs/knowledge/`)
 - **Technical Analysis**: Professional trading strategies
