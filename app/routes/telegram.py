@@ -1,7 +1,10 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
-from ..services.telegram_bot import send, send_with_buttons, answer_callback_query, edit_message
+from ..services.telegram_bot import (
+    send, send_with_buttons, answer_callback_query, edit_message,
+    set_webhook, get_webhook_info, delete_webhook, get_updates
+)
 from ..services.simple_alerts import get_alert_system
 from ..core.settings import settings
 from datetime import datetime
@@ -136,18 +139,28 @@ async def telegram_webhook(update: TelegramUpdate):
     Handle Telegram webhook updates (messages and callback queries)
     """
     try:
+        logger.info(f"📨 Received webhook update: {update.update_id}")
+        
         # Handle callback query (button press)
         if update.callback_query:
+            logger.info(f"🔘 Processing callback query: {update.callback_query.get('data', '')}")
             await handle_callback_query(update.callback_query)
         
         # Handle regular message
         elif update.message:
+            message_text = update.message.get("text", "")
+            logger.info(f"💬 Processing message: {message_text}")
             await handle_message(update.message)
         
-        return {"status": "ok"}
+        else:
+            logger.warning("⚠️ Unknown update type received")
+        
+        return {"status": "ok", "update_id": update.update_id}
     
     except Exception as e:
         logger.error(f"❌ Webhook error: {e}")
+        import traceback
+        traceback.print_exc()
         return {"status": "error", "message": str(e)}
 
 async def handle_callback_query(callback_query: dict):
@@ -385,30 +398,44 @@ async def setup_telegram_bot():
     if not settings.TG_BOT_TOKEN:
         raise HTTPException(status_code=400, detail="TG_BOT_TOKEN not configured")
     
-    # For now, return webhook URL - manual setup required
+    # Set webhook URL
     webhook_url = f"https://crypto-analyzer-gpt.onrender.com/telegram/webhook"
     
+    # Get current webhook info
+    webhook_info = await get_webhook_info()
+    current_webhook = webhook_info.get("result", {}).get("url", "") if webhook_info else ""
+    
+    setup_result = {}
+    
+    if current_webhook == webhook_url:
+        setup_result["webhook_status"] = "✅ Already configured"
+    else:
+        # Set new webhook
+        webhook_set = await set_webhook(webhook_url)
+        if webhook_set:
+            setup_result["webhook_status"] = "✅ Successfully configured"
+        else:
+            setup_result["webhook_status"] = "❌ Failed to configure"
+    
     setup_info = f"""
-🤖 **Telegram Bot Setup** 🤖
+🤖 **Telegram Bot Setup Complete** 🤖
 
 **Webhook URL:** {webhook_url}
+**Status:** {setup_result["webhook_status"]}
 
-**Setup-Anleitung:**
-1. Öffne Telegram und starte deinen Bot
-2. Sende `/start` an deinen Bot
-3. Verwende dann folgende Befehle:
-   • `/alerts` - Alert-Verwaltung
-   • `/status` - System-Status
-   • `/help` - Hilfe
+**Verfügbare Befehle:**
+• `/alerts` - Alert Control Panel
+• `/status` - System Status  
+• `/help` - Hilfe anzeigen
 
-**Verfügbare Funktionen:**
-• ✅ Aktive Alerts anzeigen
-• ✅ Alerts löschen
+**Interaktive Features:**
+• ✅ Button-basierte Alert-Verwaltung
 • ✅ Monitoring ein/ausschalten
-• ✅ System-Status prüfen
-• ✅ Interaktive Buttons
+• ✅ System-Status Dashboard
+• ✅ Alerts direkt löschen
 
-**Webhook Status:** Manual setup required
+**Teste jetzt:**
+Schreibe `/alerts` für das Control Panel!
 """
     
     # Send setup info to telegram
@@ -417,5 +444,66 @@ async def setup_telegram_bot():
     return {
         "success": True,
         "webhook_url": webhook_url,
-        "message": "Bot setup info sent to Telegram"
+        "webhook_status": setup_result["webhook_status"],
+        "current_webhook": current_webhook,
+        "message": "Bot setup completed"
+    }
+
+@router.get("/webhook-info", summary="Get Telegram webhook info")
+async def get_webhook_status():
+    """Get current webhook configuration"""
+    if not settings.TG_BOT_TOKEN:
+        raise HTTPException(status_code=400, detail="TG_BOT_TOKEN not configured")
+    
+    webhook_info = await get_webhook_info()
+    
+    if webhook_info:
+        result = webhook_info.get("result", {})
+        return {
+            "webhook_url": result.get("url", ""),
+            "has_custom_certificate": result.get("has_custom_certificate", False),
+            "pending_update_count": result.get("pending_update_count", 0),
+            "last_error_date": result.get("last_error_date", 0),
+            "last_error_message": result.get("last_error_message", ""),
+            "max_connections": result.get("max_connections", 0),
+            "allowed_updates": result.get("allowed_updates", [])
+        }
+    else:
+        return {"error": "Failed to get webhook info"}
+
+@router.post("/test-polling", summary="Test Telegram polling mode")
+async def test_polling():
+    """Test polling mode for development"""
+    if not settings.TG_BOT_TOKEN:
+        raise HTTPException(status_code=400, detail="TG_BOT_TOKEN not configured")
+    
+    # Delete webhook first
+    await delete_webhook()
+    
+    # Get recent updates
+    updates = await get_updates()
+    
+    # Process each update
+    processed_updates = []
+    for update in updates[-5:]:  # Only process last 5 updates
+        update_info = {
+            "update_id": update.get("update_id"),
+            "type": "message" if "message" in update else "callback_query" if "callback_query" in update else "unknown"
+        }
+        
+        # Process the update
+        if "message" in update:
+            await handle_message(update["message"])
+            update_info["message"] = update["message"].get("text", "")
+        elif "callback_query" in update:
+            await handle_callback_query(update["callback_query"])
+            update_info["callback_data"] = update["callback_query"].get("data", "")
+        
+        processed_updates.append(update_info)
+    
+    return {
+        "success": True,
+        "processed_updates": processed_updates,
+        "total_updates": len(updates),
+        "message": "Polling test completed"
     }

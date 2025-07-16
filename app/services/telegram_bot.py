@@ -105,3 +105,93 @@ async def edit_message(message_id: int, text: str, reply_markup: Optional[Dict[s
     except Exception as e:
         logger.error(f"❌ Edit message error: {e}")
         return False
+
+async def set_webhook(webhook_url: str):
+    """Set webhook for Telegram bot"""
+    if not settings.TG_BOT_TOKEN:
+        return False
+    
+    url = f"https://api.telegram.org/bot{settings.TG_BOT_TOKEN}/setWebhook"
+    
+    payload = {
+        "url": webhook_url,
+        "allowed_updates": ["message", "callback_query"]
+    }
+    
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            response = await client.post(url, data=payload)
+            if response.status_code == 200:
+                logger.info(f"✅ Webhook set successfully: {webhook_url}")
+                return True
+            else:
+                logger.error(f"❌ Webhook setup error: {response.status_code} - {response.text}")
+                return False
+    except Exception as e:
+        logger.error(f"❌ Webhook setup error: {e}")
+        return False
+
+async def get_webhook_info():
+    """Get current webhook info"""
+    if not settings.TG_BOT_TOKEN:
+        return None
+    
+    url = f"https://api.telegram.org/bot{settings.TG_BOT_TOKEN}/getWebhookInfo"
+    
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            response = await client.get(url)
+            if response.status_code == 200:
+                return response.json()
+            else:
+                logger.error(f"❌ Get webhook info error: {response.status_code}")
+                return None
+    except Exception as e:
+        logger.error(f"❌ Get webhook info error: {e}")
+        return None
+
+async def delete_webhook():
+    """Delete webhook (switch to polling mode)"""
+    if not settings.TG_BOT_TOKEN:
+        return False
+    
+    url = f"https://api.telegram.org/bot{settings.TG_BOT_TOKEN}/deleteWebhook"
+    
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            response = await client.post(url)
+            if response.status_code == 200:
+                logger.info("✅ Webhook deleted successfully")
+                return True
+            else:
+                logger.error(f"❌ Delete webhook error: {response.status_code}")
+                return False
+    except Exception as e:
+        logger.error(f"❌ Delete webhook error: {e}")
+        return False
+
+async def get_updates(offset: int = 0):
+    """Get updates from Telegram (polling mode)"""
+    if not settings.TG_BOT_TOKEN:
+        return []
+    
+    url = f"https://api.telegram.org/bot{settings.TG_BOT_TOKEN}/getUpdates"
+    
+    payload = {
+        "offset": offset,
+        "timeout": 1,
+        "allowed_updates": ["message", "callback_query"]
+    }
+    
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            response = await client.post(url, data=payload)
+            if response.status_code == 200:
+                data = response.json()
+                return data.get("result", [])
+            else:
+                logger.error(f"❌ Get updates error: {response.status_code}")
+                return []
+    except Exception as e:
+        logger.error(f"❌ Get updates error: {e}")
+        return []
