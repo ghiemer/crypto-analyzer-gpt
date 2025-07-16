@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from typing import Optional
 from ..services.telegram_bot import (
@@ -137,12 +137,23 @@ async def send_price_alert(alert: PriceAlert):
         raise HTTPException(status_code=500, detail=f"Failed to send alert: {str(e)}")
 
 @webhook_router.post("/webhook", summary="Telegram webhook for bot interactions")
-async def telegram_webhook(update: dict):
+async def telegram_webhook(request: Request):
     """
     Handle Telegram webhook updates (messages and callback queries)
     Note: This endpoint is called by Telegram and doesn't require API key auth
     """
     try:
+        # Parse JSON body
+        try:
+            update = await request.json()
+        except Exception as json_error:
+            logger.warning(f"⚠️ Invalid JSON in webhook request: {json_error}")
+            return {"status": "error", "message": "Invalid JSON"}
+        
+        if not isinstance(update, dict):
+            logger.warning("⚠️ Webhook update is not a dictionary")
+            return {"status": "error", "message": "Invalid update format"}
+        
         update_id = update.get("update_id", 0)
         logger.info(f"📨 Received webhook update: {update_id}")
         
