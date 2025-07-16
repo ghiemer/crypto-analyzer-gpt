@@ -9,7 +9,8 @@ from .core.cache import init_cache
 from .core.database import init_db
 from .core.alerts import alert_worker
 from .services.bitget import candles          # fetch_df
-from .routes import api_router, telegram
+from .routes import api_router, telegram, gpt_alerts
+from .services.simple_alerts import start_alert_monitoring, stop_alert_monitoring
 
 log = logging.getLogger("uvicorn")
 log.setLevel(settings.LOG_LEVEL)
@@ -18,8 +19,19 @@ log.setLevel(settings.LOG_LEVEL)
 async def lifespan(app: FastAPI):
     # Startup
     await init_cache()
-    init_db()
+    
+    # Initialize database (with error handling)
+    try:
+        init_db()
+    except Exception as e:
+        print(f"⚠️ Database initialization failed: {e}")
+        print("🔄 Continuing without database...")
+    
+    # Start old alert system
     alert_task = asyncio.create_task(alert_worker(lambda sym: candles(sym, limit=50)))
+    
+    # Start alert monitoring system
+    monitoring_task = asyncio.create_task(start_alert_monitoring())
     
     yield
     
@@ -29,6 +41,9 @@ async def lifespan(app: FastAPI):
         await alert_task
     except asyncio.CancelledError:
         pass
+    
+    # Stop alert monitoring
+    await stop_alert_monitoring()
 
 app = FastAPI(
     title="Crypto Signal API",
@@ -70,7 +85,8 @@ async def public_health():
     }
 
 app.include_router(api_router, dependencies=[Depends(verify)])
-app.include_router(telegram.router)
+app.include_router(telegram.router, dependencies=[Depends(verify)])
+app.include_router(gpt_alerts.router, dependencies=[Depends(verify)])
 
 # Global exception handler for debugging
 @app.exception_handler(Exception)

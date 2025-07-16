@@ -114,34 +114,14 @@
     "/telegram/alert": {
       "post": {
         "summary": "Send price alert to Telegram",
-        "description": "Send a price alert notification to Telegram for breakouts, support/resistance levels, or RSI extremes.",
+        "description": "Send a price alert notification to Telegram for breakouts, support/resistance levels, or price changes.",
         "operationId": "sendPriceAlert",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "symbol": {
-                    "type": "string",
-                    "example": "BTCUSDT"
-                  },
-                  "current_price": {
-                    "type": "number",
-                    "example": 45000.50
-                  },
-                  "alert_type": {
-                    "type": "string",
-                    "enum": ["BREAKOUT", "SUPPORT", "RESISTANCE", "RSI_EXTREME"],
-                    "example": "BREAKOUT"
-                  },
-                  "details": {
-                    "type": "string",
-                    "example": "Price broke above resistance at $44,500"
-                  }
-                },
-                "required": ["symbol", "current_price", "alert_type"]
+                "$ref": "#/components/schemas/PriceAlert"
               }
             }
           }
@@ -949,6 +929,38 @@
           }
         },
         "required": ["symbol", "signal", "confidence", "current_price", "entry_price", "target_1", "target_2", "stop_loss", "risk_reward", "analysis", "timestamp"]
+      },
+      "PriceAlert": {
+        "type": "object",
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "description": "Trading pair symbol",
+            "example": "BTCUSDT"
+          },
+          "current_price": {
+            "type": "number",
+            "description": "Current market price",
+            "example": 45000.50
+          },
+          "alert_type": {
+            "type": "string",
+            "enum": ["BREAKOUT", "SUPPORT", "RESISTANCE", "RSI_EXTREME", "PRICE_CHANGE"],
+            "description": "Type of price alert",
+            "example": "PRICE_CHANGE"
+          },
+          "details": {
+            "type": "string",
+            "description": "Additional details about the alert",
+            "example": "Price moved 0.5% in the last 5 minutes"
+          },
+          "change_percentage": {
+            "type": "number",
+            "description": "Price change percentage",
+            "example": 0.5
+          }
+        },
+        "required": ["symbol", "current_price", "alert_type"]
       }
     }
   }

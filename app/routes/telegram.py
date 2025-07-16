@@ -28,6 +28,13 @@ class TradingSignal(BaseModel):
     analysis: str
     timestamp: str
 
+class PriceAlert(BaseModel):
+    symbol: str
+    current_price: float
+    alert_type: str  # "BREAKOUT", "SUPPORT", "RESISTANCE", "RSI_EXTREME", "PRICE_CHANGE"
+    details: str = ""
+    change_percentage: float = 0.0
+
 @router.post("/send", summary="Send message to Telegram")
 async def send_message(message: TelegramMessage):
     """
@@ -81,25 +88,26 @@ async def send_trading_signal(signal: TradingSignal):
         raise HTTPException(status_code=500, detail=f"Failed to send signal: {str(e)}")
 
 @router.post("/alert", summary="Send price alert to Telegram")
-async def send_price_alert(
-    symbol: str,
-    current_price: float,
-    alert_type: str,  # "BREAKOUT", "SUPPORT", "RESISTANCE", "RSI_EXTREME"
-    details: str = ""
-):
+async def send_price_alert(alert: PriceAlert):
     """
     Send a price alert to Telegram.
     """
     if not (settings.TG_BOT_TOKEN and settings.TG_CHAT_ID):
         raise HTTPException(status_code=400, detail="Telegram bot not configured")
     
+    # Format change percentage if provided
+    change_text = ""
+    if alert.change_percentage != 0.0:
+        direction = "📈" if alert.change_percentage > 0 else "📉"
+        change_text = f"\n**Price Change**: {direction} {alert.change_percentage:+.2f}%"
+    
     alert_message = f"""
 🔔 **PRICE ALERT** 🔔
 
-**{symbol}**: ${current_price:,.2f}
-**Alert Type**: {alert_type}
+**{alert.symbol}**: ${alert.current_price:,.2f}
+**Alert Type**: {alert.alert_type}{change_text}
 
-{details}
+{alert.details}
 
 📊 Check your analysis for next steps!
 """
