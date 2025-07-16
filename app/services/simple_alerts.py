@@ -146,11 +146,20 @@ class SimpleAlertSystem:
             
             # Send Telegram notification
             if message:
-                await send(message)
-                logger.info(f"📨 Alert triggered: {alert.symbol} @ ${current_price}")
+                try:
+                    await send(message)
+                    logger.info(f"📨 Alert triggered and sent: {alert.symbol} @ ${current_price}")
+                except Exception as e:
+                    logger.error(f"❌ Failed to send Telegram message: {e}")
+            
+            # Remove alert from system (one-time alerts)
+            self.delete_alert(alert.id)
+            logger.info(f"🗑️ Alert removed after trigger: {alert.id}")
             
         except Exception as e:
-            logger.error(f"Error triggering alert: {e}")
+            logger.error(f"❌ Error triggering alert: {e}")
+            import traceback
+            traceback.print_exc()
     
     def create_alert_message(self, alert: SimpleAlert, current_price: float) -> str:
         """Create formatted alert message"""
@@ -204,13 +213,23 @@ Time: {datetime.now().strftime('%H:%M:%S')}
             return
         
         self.running = True
-        logger.info("🚀 Simple Alert System started")
+        
+        # Log system status
+        redis_status = "✅ Connected" if self.redis_client else "❌ Not available"
+        telegram_status = "✅ Configured" if (settings.TG_BOT_TOKEN and settings.TG_CHAT_ID) else "❌ Not configured"
+        
+        logger.info(f"🚀 Simple Alert System started")
+        logger.info(f"   Redis: {redis_status}")
+        logger.info(f"   Telegram: {telegram_status}")
+        logger.info(f"   Check interval: {self.check_interval} seconds")
         
         while self.running:
             try:
                 alerts = self.get_active_alerts()
                 
                 if alerts:
+                    logger.info(f"🔍 Checking {len(alerts)} active alerts")
+                    
                     # Group by symbol
                     symbol_alerts: Dict[str, List[SimpleAlert]] = {}
                     for alert in alerts:
@@ -220,20 +239,38 @@ Time: {datetime.now().strftime('%H:%M:%S')}
                     
                     # Check each symbol
                     for symbol, alert_list in symbol_alerts.items():
-                        current_price = await self.get_current_price(symbol)
-                        if current_price:
-                            self.price_cache[symbol] = current_price
-                            
-                            for alert in alert_list:
-                                try:
-                                    await self.check_alert(alert, current_price)
-                                except Exception as e:
-                                    logger.error(f"Error checking alert {alert.id}: {e}")
+                        try:
+                            current_price = await self.get_current_price(symbol)
+                            if current_price:
+                                logger.info(f"📊 {symbol}: ${current_price:.2f} (checking {len(alert_list)} alerts)")
+                                self.price_cache[symbol] = current_price
+                                
+                                for alert in alert_list:
+                                    try:
+                                        if await self.check_alert(alert, current_price):
+                                            logger.info(f"🚨 Alert triggered: {alert.id} for {symbol}")
+                                    except Exception as e:
+                                        logger.error(f"❌ Error checking alert {alert.id}: {e}")
+                            else:
+                                logger.warning(f"⚠️ Could not get price for {symbol}")
+                        except Exception as e:
+                            logger.error(f"❌ Error processing symbol {symbol}: {e}")
+                else:
+                    # Only log occasionally when no alerts
+                    if hasattr(self, '_last_no_alerts_log'):
+                        if (datetime.now() - self._last_no_alerts_log).total_seconds() > 300:  # 5 minutes
+                            logger.info("💤 No active alerts to check")
+                            self._last_no_alerts_log = datetime.now()
+                    else:
+                        logger.info("💤 No active alerts to check")
+                        self._last_no_alerts_log = datetime.now()
                 
                 await asyncio.sleep(self.check_interval)
                 
             except Exception as e:
-                logger.error(f"Error in monitoring loop: {e}")
+                logger.error(f"❌ Error in monitoring loop: {e}")
+                import traceback
+                traceback.print_exc()
                 await asyncio.sleep(30)
     
     async def stop_monitoring(self):

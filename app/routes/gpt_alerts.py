@@ -210,3 +210,81 @@ async def alert_system_info():
             "stats": "/gpt-alerts/stats"
         }
     }
+
+@router.post("/test-system", response_model=Dict[str, Any])
+async def test_system():
+    """
+    Test the alert system components on Render
+    """
+    from ..services.telegram_bot import send
+    from ..services.bitget import candles
+    from ..core.settings import settings
+    
+    result = {
+        "timestamp": datetime.now().isoformat(),
+        "environment": settings.ENVIRONMENT,
+        "tests": {}
+    }
+    
+    # Test 1: Redis connection
+    alert_system = get_alert_system()
+    result["tests"]["redis"] = {
+        "available": alert_system.redis_client is not None,
+        "status": "✅ Connected" if alert_system.redis_client else "❌ Not available"
+    }
+    
+    # Test 2: Telegram configuration
+    telegram_configured = bool(settings.TG_BOT_TOKEN and settings.TG_CHAT_ID)
+    result["tests"]["telegram"] = {
+        "configured": telegram_configured,
+        "status": "✅ Configured" if telegram_configured else "❌ Not configured"
+    }
+    
+    # Test 3: Bitget API
+    try:
+        price_data = await candles("BTCUSDT", limit=1)
+        current_price = float(price_data.iloc[-1]["close"]) if not price_data.empty else None
+        result["tests"]["bitget"] = {
+            "working": current_price is not None,
+            "current_btc_price": current_price,
+            "status": "✅ Working" if current_price else "❌ Failed"
+        }
+    except Exception as e:
+        result["tests"]["bitget"] = {
+            "working": False,
+            "error": str(e),
+            "status": "❌ Failed"
+        }
+    
+    # Test 4: Send test Telegram message (only if configured)
+    if telegram_configured:
+        try:
+            test_message = f"""
+🧪 **TEST MESSAGE** 🧪
+
+System Test: {datetime.now().strftime('%H:%M:%S')}
+Environment: {settings.ENVIRONMENT}
+Status: Alert system is running!
+
+This is a test message from your crypto analyzer.
+"""
+            await send(test_message)
+            result["tests"]["telegram_send"] = {
+                "sent": True,
+                "status": "✅ Test message sent"
+            }
+        except Exception as e:
+            result["tests"]["telegram_send"] = {
+                "sent": False,
+                "error": str(e),
+                "status": "❌ Failed to send"
+            }
+    
+    # Test 5: Alert system monitoring status
+    result["tests"]["monitoring"] = {
+        "running": alert_system.running,
+        "active_alerts": len(alert_system.get_active_alerts()),
+        "status": "✅ Running" if alert_system.running else "❌ Not running"
+    }
+    
+    return result
