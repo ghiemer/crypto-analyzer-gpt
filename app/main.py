@@ -86,6 +86,7 @@ async def public_health():
 
 app.include_router(api_router, dependencies=[Depends(verify)])
 app.include_router(telegram.router, dependencies=[Depends(verify)])
+app.include_router(telegram.webhook_router)  # No auth for webhook
 app.include_router(gpt_alerts.router, dependencies=[Depends(verify)])
 
 # Global exception handler for debugging

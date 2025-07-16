@@ -15,6 +15,9 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/telegram", tags=["telegram"])
 
+# Separate router for webhook (no auth required)
+webhook_router = APIRouter(prefix="/telegram", tags=["telegram"])
+
 class TelegramMessage(BaseModel):
     message: str
     analysis_type: str = "general"
@@ -133,29 +136,32 @@ async def send_price_alert(alert: PriceAlert):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to send alert: {str(e)}")
 
-@router.post("/webhook", summary="Telegram webhook for bot interactions")
-async def telegram_webhook(update: TelegramUpdate):
+@webhook_router.post("/webhook", summary="Telegram webhook for bot interactions")
+async def telegram_webhook(update: dict):
     """
     Handle Telegram webhook updates (messages and callback queries)
+    Note: This endpoint is called by Telegram and doesn't require API key auth
     """
     try:
-        logger.info(f"📨 Received webhook update: {update.update_id}")
+        update_id = update.get("update_id", 0)
+        logger.info(f"📨 Received webhook update: {update_id}")
         
         # Handle callback query (button press)
-        if update.callback_query:
-            logger.info(f"🔘 Processing callback query: {update.callback_query.get('data', '')}")
-            await handle_callback_query(update.callback_query)
+        if "callback_query" in update:
+            callback_data = update["callback_query"].get("data", "")
+            logger.info(f"🔘 Processing callback query: {callback_data}")
+            await handle_callback_query(update["callback_query"])
         
         # Handle regular message
-        elif update.message:
-            message_text = update.message.get("text", "")
+        elif "message" in update:
+            message_text = update["message"].get("text", "")
             logger.info(f"💬 Processing message: {message_text}")
-            await handle_message(update.message)
+            await handle_message(update["message"])
         
         else:
             logger.warning("⚠️ Unknown update type received")
         
-        return {"status": "ok", "update_id": update.update_id}
+        return {"status": "ok", "update_id": update_id}
     
     except Exception as e:
         logger.error(f"❌ Webhook error: {e}")
