@@ -302,20 +302,39 @@ Dein GPT kann neue Alerts über die API erstellen:
         for alert in active_alerts[:5]:  # Limit to 5 alerts
             # Add alert info to text
             alert_type_emoji = {"price_above": "📈", "price_below": "📉", "breakout": "🚀"}
-            emoji = alert_type_emoji.get(alert.alert_type, "📊")
+            
+            # Handle both SimpleAlert objects and dictionaries
+            if isinstance(alert, dict):
+                # Dictionary
+                emoji = alert_type_emoji.get(alert.get('alert_type', ''), "📊")
+                symbol = alert.get('symbol', '')
+                alert_type = alert.get('alert_type', '')
+                target_price = alert.get('target_price', 0)
+                created_at = alert.get('created_at', '')
+                description = alert.get('description', '')
+                alert_id = alert.get('id', '')
+            else:
+                # SimpleAlert object
+                emoji = alert_type_emoji.get(alert.alert_type, "📊")
+                symbol = alert.symbol
+                alert_type = alert.alert_type
+                target_price = alert.target_price
+                created_at = alert.created_at
+                description = alert.description
+                alert_id = alert.id
             
             text += f"""
-{emoji} **{alert.symbol}**
-Type: {alert.alert_type}
-Target: ${alert.target_price:,.2f}
-Created: {alert.created_at[:10]}
-Description: {alert.description[:50]}...
+{emoji} **{symbol}**
+Type: {alert_type}
+Target: ${target_price:,.2f}
+Created: {created_at[:10]}
+Description: {description[:50]}...
 
 """
             
             # Add delete button
             buttons.append([
-                {"text": f"❌ Delete {alert.symbol}", "callback_data": f"delete_alert_{alert.id}"}
+                {"text": f"❌ Delete {symbol}", "callback_data": f"delete_alert_{alert_id}"}
             ])
         
         # Add refresh button
