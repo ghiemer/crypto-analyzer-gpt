@@ -1,7 +1,14 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from ..services.telegram_bot import send
+from typing import Optional
+from ..services.telegram_bot import send, send_with_buttons, answer_callback_query, edit_message
+from ..services.simple_alerts import get_alert_system
 from ..core.settings import settings
+from datetime import datetime
+import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/telegram", tags=["telegram"])
 
@@ -34,6 +41,11 @@ class PriceAlert(BaseModel):
     alert_type: str  # "BREAKOUT", "SUPPORT", "RESISTANCE", "RSI_EXTREME", "PRICE_CHANGE"
     details: str = ""
     change_percentage: float = 0.0
+
+class TelegramUpdate(BaseModel):
+    update_id: int
+    message: dict = {}
+    callback_query: dict = {}
 
 @router.post("/send", summary="Send message to Telegram")
 async def send_message(message: TelegramMessage):
@@ -117,3 +129,293 @@ async def send_price_alert(alert: PriceAlert):
         return {"success": True, "message": "Price alert sent successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to send alert: {str(e)}")
+
+@router.post("/webhook", summary="Telegram webhook for bot interactions")
+async def telegram_webhook(update: TelegramUpdate):
+    """
+    Handle Telegram webhook updates (messages and callback queries)
+    """
+    try:
+        # Handle callback query (button press)
+        if update.callback_query:
+            await handle_callback_query(update.callback_query)
+        
+        # Handle regular message
+        elif update.message:
+            await handle_message(update.message)
+        
+        return {"status": "ok"}
+    
+    except Exception as e:
+        logger.error(f"❌ Webhook error: {e}")
+        return {"status": "error", "message": str(e)}
+
+async def handle_callback_query(callback_query: dict):
+    """Handle button presses from inline keyboard"""
+    callback_data = callback_query.get("data", "")
+    callback_query_id = callback_query.get("id", "")
+    message = callback_query.get("message", {})
+    
+    alert_system = get_alert_system()
+    
+    if callback_data == "show_alerts":
+        await show_active_alerts(message.get("message_id"))
+        await answer_callback_query(callback_query_id, "Aktive Alerts geladen")
+        
+    elif callback_data == "toggle_monitoring":
+        if alert_system.running:
+            await alert_system.stop_monitoring()
+            status = "❌ Monitoring gestoppt"
+        else:
+            # Start monitoring in background
+            import asyncio
+            asyncio.create_task(alert_system.start_monitoring())
+            status = "✅ Monitoring gestartet"
+        
+        await update_control_panel(message.get("message_id"))
+        await answer_callback_query(callback_query_id, status)
+        
+    elif callback_data == "system_status":
+        await show_system_status(message.get("message_id"))
+        await answer_callback_query(callback_query_id, "System Status geladen")
+        
+    elif callback_data.startswith("delete_alert_"):
+        alert_id = callback_data.replace("delete_alert_", "")
+        alert_system.delete_alert(alert_id)
+        await show_active_alerts(message.get("message_id"))
+        await answer_callback_query(callback_query_id, "Alert gelöscht")
+        
+    elif callback_data == "refresh_alerts":
+        await show_active_alerts(message.get("message_id"))
+        await answer_callback_query(callback_query_id, "Alerts aktualisiert")
+
+async def handle_message(message: dict):
+    """Handle regular text messages"""
+    text = message.get("text", "").lower()
+    
+    if text.startswith("/start") or text.startswith("/help"):
+        await send_help_message()
+    elif text.startswith("/alerts"):
+        await send_alert_control_panel()
+    elif text.startswith("/status"):
+        await send_alert_control_panel()
+    elif text.startswith("/monitoring"):
+        await send_alert_control_panel()
+
+async def send_help_message():
+    """Send help message with available commands"""
+    help_text = """
+🤖 **Crypto Analyzer Bot** 🤖
+
+**Verfügbare Befehle:**
+• `/alerts` - Alert-Verwaltung
+• `/status` - System-Status
+• `/monitoring` - Monitoring ein/aus
+• `/help` - Diese Hilfe
+
+**Alert-System:**
+Das System überwacht Preise alle 20 Sekunden und sendet automatisch Benachrichtigungen bei Auslösung.
+
+**Dein GPT kann über die API neue Alerts erstellen:**
+`POST /gpt-alerts/price-above`
+`POST /gpt-alerts/price-below`
+`POST /gpt-alerts/breakout`
+"""
+    await send(help_text)
+
+async def send_alert_control_panel():
+    """Send alert control panel with buttons"""
+    alert_system = get_alert_system()
+    active_alerts = alert_system.get_active_alerts()
+    
+    text = f"""
+📊 **Alert Control Panel** 📊
+
+**Aktive Alerts:** {len(active_alerts)}
+**Monitoring:** {'✅ Running' if alert_system.running else '❌ Stopped'}
+**Letzte Prüfung:** {datetime.now().strftime('%H:%M:%S')}
+
+Wähle eine Option:
+"""
+    
+    buttons = [
+        [
+            {"text": "📋 Aktive Alerts", "callback_data": "show_alerts"},
+            {"text": "🔄 System Status", "callback_data": "system_status"}
+        ],
+        [
+            {"text": "⚡ Monitoring Ein/Aus", "callback_data": "toggle_monitoring"}
+        ]
+    ]
+    
+    await send_with_buttons(text, buttons)
+
+from typing import Optional
+
+# ...existing imports...
+
+async def show_active_alerts(message_id: Optional[int] = None):
+    """Show active alerts with delete buttons"""
+    alert_system = get_alert_system()
+    active_alerts = alert_system.get_active_alerts()
+    
+    if not active_alerts:
+        text = """
+📋 **Aktive Alerts** 📋
+
+Keine aktiven Alerts vorhanden.
+
+Dein GPT kann neue Alerts über die API erstellen:
+• `/gpt-alerts/price-above`
+• `/gpt-alerts/price-below`
+• `/gpt-alerts/breakout`
+"""
+        buttons = [
+            [{"text": "🔄 Aktualisieren", "callback_data": "refresh_alerts"}]
+        ]
+    else:
+        text = f"""
+📋 **Aktive Alerts** ({len(active_alerts)})
+
+"""
+        buttons = []
+        
+        for alert in active_alerts[:5]:  # Limit to 5 alerts
+            # Add alert info to text
+            alert_type_emoji = {"price_above": "📈", "price_below": "📉", "breakout": "🚀"}
+            emoji = alert_type_emoji.get(alert.alert_type, "📊")
+            
+            text += f"""
+{emoji} **{alert.symbol}**
+Type: {alert.alert_type}
+Target: ${alert.target_price:,.2f}
+Created: {alert.created_at[:10]}
+Description: {alert.description[:50]}...
+
+"""
+            
+            # Add delete button
+            buttons.append([
+                {"text": f"❌ Delete {alert.symbol}", "callback_data": f"delete_alert_{alert.id}"}
+            ])
+        
+        # Add refresh button
+        buttons.append([
+            {"text": "🔄 Aktualisieren", "callback_data": "refresh_alerts"}
+        ])
+    
+    if message_id:
+        await edit_message(message_id, text, {"inline_keyboard": [[{"text": button["text"], "callback_data": button["callback_data"]} for button in row] for row in buttons]})
+    else:
+        await send_with_buttons(text, buttons)
+
+async def show_system_status(message_id: Optional[int] = None):
+    """Show system status"""
+    alert_system = get_alert_system()
+    stats = alert_system.get_stats()
+    
+    redis_status = "✅ Connected" if alert_system.redis_client else "❌ Not available"
+    telegram_status = "✅ Configured" if (settings.TG_BOT_TOKEN and settings.TG_CHAT_ID) else "❌ Not configured"
+    
+    text = f"""
+🔧 **System Status** 🔧
+
+**Environment:** {settings.ENVIRONMENT}
+**Redis:** {redis_status}
+**Telegram:** {telegram_status}
+**Monitoring:** {'✅ Running' if alert_system.running else '❌ Stopped'}
+
+**Alert Statistics:**
+• Aktive Alerts: {stats['total_active']}
+• Check Interval: {alert_system.check_interval}s
+
+**Price Cache:**
+"""
+    
+    for symbol, price in stats['price_cache'].items():
+        text += f"• {symbol}: ${price:,.2f}\n"
+    
+    if not stats['price_cache']:
+        text += "• Keine Preise gecacht\n"
+    
+    text += f"\n**Letzte Aktualisierung:** {datetime.now().strftime('%H:%M:%S')}"
+    
+    buttons = [
+        [{"text": "🔄 Aktualisieren", "callback_data": "system_status"}]
+    ]
+    
+    if message_id:
+        await edit_message(message_id, text, {"inline_keyboard": [[{"text": button["text"], "callback_data": button["callback_data"]} for button in row] for row in buttons]})
+    else:
+        await send_with_buttons(text, buttons)
+
+async def update_control_panel(message_id: int):
+    """Update the control panel with current status"""
+    alert_system = get_alert_system()
+    active_alerts = alert_system.get_active_alerts()
+    
+    text = f"""
+📊 **Alert Control Panel** 📊
+
+**Aktive Alerts:** {len(active_alerts)}
+**Monitoring:** {'✅ Running' if alert_system.running else '❌ Stopped'}
+**Letzte Prüfung:** {datetime.now().strftime('%H:%M:%S')}
+
+Wähle eine Option:
+"""
+    
+    buttons = [
+        [
+            {"text": "📋 Aktive Alerts", "callback_data": "show_alerts"},
+            {"text": "🔄 System Status", "callback_data": "system_status"}
+        ],
+        [
+            {"text": "⚡ Monitoring Ein/Aus", "callback_data": "toggle_monitoring"}
+        ]
+    ]
+    
+    await edit_message(message_id, text, {"inline_keyboard": [[{"text": button["text"], "callback_data": button["callback_data"]} for button in row] for row in buttons]})
+
+@router.post("/setup-bot", summary="Setup Telegram Bot Webhook")
+async def setup_telegram_bot():
+    """
+    Setup Telegram Bot Webhook for interactive buttons
+    Call this once to enable interactive bot features
+    """
+    if not settings.TG_BOT_TOKEN:
+        raise HTTPException(status_code=400, detail="TG_BOT_TOKEN not configured")
+    
+    # For now, return webhook URL - manual setup required
+    webhook_url = f"https://crypto-analyzer-gpt.onrender.com/telegram/webhook"
+    
+    setup_info = f"""
+🤖 **Telegram Bot Setup** 🤖
+
+**Webhook URL:** {webhook_url}
+
+**Setup-Anleitung:**
+1. Öffne Telegram und starte deinen Bot
+2. Sende `/start` an deinen Bot
+3. Verwende dann folgende Befehle:
+   • `/alerts` - Alert-Verwaltung
+   • `/status` - System-Status
+   • `/help` - Hilfe
+
+**Verfügbare Funktionen:**
+• ✅ Aktive Alerts anzeigen
+• ✅ Alerts löschen
+• ✅ Monitoring ein/ausschalten
+• ✅ System-Status prüfen
+• ✅ Interaktive Buttons
+
+**Webhook Status:** Manual setup required
+"""
+    
+    # Send setup info to telegram
+    await send(setup_info)
+    
+    return {
+        "success": True,
+        "webhook_url": webhook_url,
+        "message": "Bot setup info sent to Telegram"
+    }
