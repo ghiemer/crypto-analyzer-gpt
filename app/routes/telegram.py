@@ -177,7 +177,15 @@ async def handle_callback_query(callback_query: dict):
     
     alert_system = get_alert_system()
     
-    if callback_data == "show_alerts":
+    if callback_data == "main_menu":
+        await send_main_menu()
+        await answer_callback_query(callback_query_id, "Hauptmenü")
+        
+    elif callback_data == "help":
+        await send_help_message()
+        await answer_callback_query(callback_query_id, "Hilfe")
+        
+    elif callback_data == "show_alerts":
         await show_active_alerts(message.get("message_id"))
         await answer_callback_query(callback_query_id, "Aktive Alerts geladen")
         
@@ -212,7 +220,9 @@ async def handle_message(message: dict):
     """Handle regular text messages"""
     text = message.get("text", "").lower()
     
-    if text.startswith("/start") or text.startswith("/help"):
+    if text.startswith("/start"):
+        await send_main_menu()
+    elif text.startswith("/help"):
         await send_help_message()
     elif text.startswith("/alerts"):
         await send_alert_control_panel()
@@ -220,25 +230,69 @@ async def handle_message(message: dict):
         await send_alert_control_panel()
     elif text.startswith("/monitoring"):
         await send_alert_control_panel()
+    elif text.startswith("/menu"):
+        await send_main_menu()
+
+async def send_main_menu():
+    """Send main menu with navigation buttons"""
+    alert_system = get_alert_system()
+    active_alerts = alert_system.get_active_alerts()
+    
+    text = f"""🤖 **Crypto Analyzer Bot** 🤖
+
+Willkommen! Hier ist dein Hauptmenü:
+
+📊 **Status:**
+• Aktive Alerts: {len(active_alerts)}
+• Monitoring: {'✅ Running' if alert_system.running else '❌ Stopped'}
+• Letzte Prüfung: {datetime.now().strftime('%H:%M:%S')}
+
+Wähle eine Option:"""
+    
+    buttons = [
+        [
+            {"text": "📋 Alerts verwalten", "callback_data": "show_alerts"},
+            {"text": "🔄 System Status", "callback_data": "system_status"}
+        ],
+        [
+            {"text": "⚡ Monitoring", "callback_data": "toggle_monitoring"},
+            {"text": "❓ Hilfe", "callback_data": "help"}
+        ]
+    ]
+    
+    await send_with_buttons(text, buttons)
 
 async def send_help_message():
     """Send help message with available commands"""
-    help_text = """🤖 Crypto Analyzer Bot 🤖
+    help_text = """🤖 **Crypto Analyzer Bot** 🤖
 
-Verfügbare Befehle:
-• /alerts - Alert-Verwaltung
-• /status - System-Status
-• /monitoring - Monitoring ein/aus
-• /help - Diese Hilfe
+**Verfügbare Befehle:**
+• `/start` - Hauptmenü anzeigen
+• `/menu` - Hauptmenü anzeigen
+• `/alerts` - Alert-Verwaltung
+• `/status` - System-Status
+• `/monitoring` - Monitoring ein/aus
+• `/help` - Diese Hilfe
 
-Alert-System:
+**Alert-System:**
 Das System überwacht Preise alle 20 Sekunden und sendet automatisch Benachrichtigungen bei Auslösung.
 
-Dein GPT kann über die API neue Alerts erstellen:
-POST /gpt-alerts/price-above
-POST /gpt-alerts/price-below
-POST /gpt-alerts/breakout"""
-    await send(help_text)
+**Dein GPT kann über die API neue Alerts erstellen:**
+• `POST /gpt-alerts/price-above`
+• `POST /gpt-alerts/price-below` 
+• `POST /gpt-alerts/breakout`
+
+**Interaktive Features:**
+• ✅ Button-basierte Navigation
+• ✅ Alert-Verwaltung
+• ✅ Monitoring-Steuerung
+• ✅ Echtzeit-Updates"""
+    
+    buttons = [
+        [{"text": "🏠 Hauptmenü", "callback_data": "main_menu"}]
+    ]
+    
+    await send_with_buttons(help_text, buttons)
 
 async def send_alert_control_panel():
     """Send alert control panel with buttons"""
@@ -260,6 +314,9 @@ Wähle eine Option:"""
         ],
         [
             {"text": "⚡ Monitoring Ein/Aus", "callback_data": "toggle_monitoring"}
+        ],
+        [
+            {"text": "🏠 Hauptmenü", "callback_data": "main_menu"}
         ]
     ]
     
@@ -284,7 +341,8 @@ Dein GPT kann neue Alerts über die API erstellen:
 • /gpt-alerts/price-below
 • /gpt-alerts/breakout"""
         buttons = [
-            [{"text": "🔄 Aktualisieren", "callback_data": "refresh_alerts"}]
+            [{"text": "🔄 Aktualisieren", "callback_data": "refresh_alerts"}],
+            [{"text": "🏠 Hauptmenü", "callback_data": "main_menu"}]
         ]
     else:
         text = f"""📋 Aktive Alerts ({len(active_alerts)})
@@ -333,6 +391,10 @@ Description: {description[:50]}...
         buttons.append([
             {"text": "🔄 Aktualisieren", "callback_data": "refresh_alerts"}
         ])
+        # Add back to main menu button
+        buttons.append([
+            {"text": "🏠 Hauptmenü", "callback_data": "main_menu"}
+        ])
     
     if message_id:
         await edit_message(message_id, text, {"inline_keyboard": [[{"text": button["text"], "callback_data": button["callback_data"]} for button in row] for row in buttons]})
@@ -371,7 +433,8 @@ async def show_system_status(message_id: Optional[int] = None):
     text += f"\n**Letzte Aktualisierung:** {datetime.now().strftime('%H:%M:%S')}"
     
     buttons = [
-        [{"text": "🔄 Aktualisieren", "callback_data": "system_status"}]
+        [{"text": "🔄 Aktualisieren", "callback_data": "system_status"}],
+        [{"text": "🏠 Hauptmenü", "callback_data": "main_menu"}]
     ]
     
     if message_id:
@@ -401,6 +464,9 @@ Wähle eine Option:
         ],
         [
             {"text": "⚡ Monitoring Ein/Aus", "callback_data": "toggle_monitoring"}
+        ],
+        [
+            {"text": "🏠 Hauptmenü", "callback_data": "main_menu"}
         ]
     ]
     
