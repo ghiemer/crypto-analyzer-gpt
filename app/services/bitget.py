@@ -35,8 +35,21 @@ async def _get(path: str, params: dict, ttl: int = 15):
     try:
         async with httpx.AsyncClient(timeout=10) as c:
             r = await c.get(f"{BASE}{path}", params=params)
+        
         if r.status_code >= 400:
-            raise UPSTREAM(f"Bitget API error: {r.status_code} - {r.text}")
+            try:
+                error_data = r.json()
+                error_msg = error_data.get("msg", r.text)
+                if "not found" in error_msg.lower():
+                    raise BAD_ARGUMENT(f"Symbol or parameter not found: {error_msg}")
+                elif "limit" in error_msg.lower():
+                    raise BAD_ARGUMENT(f"Invalid limit parameter: {error_msg}")
+                else:
+                    raise UPSTREAM(f"Bitget API error: {r.status_code} - {error_msg}")
+            except ValueError:
+                # Response is not JSON
+                raise UPSTREAM(f"Bitget API error: {r.status_code} - {r.text}")
+        
         data = r.json()
         if "data" not in data:
             raise UPSTREAM(f"Unexpected Bitget API response format: {data}")
@@ -77,6 +90,12 @@ async def candles(symbol: str, granularity="1h", limit=200,
     return df
 
 async def orderbook(symbol: str, limit=5):
+    # Validate limit parameter
+    if limit > 100:
+        limit = 100
+    elif limit < 1:
+        limit = 1
+    
     raw = await _get("/spot/market/merge-depth", {"symbol": symbol, "limit": limit})
     bids = [(float(p), float(q)) for p, q in raw["bids"]]
     asks = [(float(p), float(q)) for p, q in raw["asks"]]

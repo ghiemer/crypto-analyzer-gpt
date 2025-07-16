@@ -16,6 +16,6 @@ router = APIRouter(prefix="/orderbook", tags=["market"])
 )
 async def orderbook(
     symbol: str = Query(..., description="Trading symbol (e.g. BTCUSDT)", example="BTCUSDT"),
-    limit: int = Query(5, le=20, description="Number of order book levels")
+    limit: int = Query(5, le=100, description="Number of order book levels (max 100)")
 ):
     return await bitget.orderbook(symbol, limit)

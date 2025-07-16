@@ -34,16 +34,23 @@ async def candles(
         df = await bitget.candles(symbol, granularity, limit, product_type)
         ind_list: list[str] = []
         if indicators:
+            # Handle special cases
             if indicators.lower() in ("*", "all"):
                 ind_list = available()
+            elif indicators.lower() in ("none", "null", ""):
+                # Skip indicators if explicitly set to none
+                ind_list = []
             else:
                 ind_list = [i.strip() for i in indicators.split(",") if i.strip()]
                 if len(ind_list) > settings.MAX_INDICATORS:
                     raise BAD_ARGUMENT(f"Maximum {settings.MAX_INDICATORS} indicators allowed")
-            try:
-                df = compute(df, ind_list)
-            except ValueError as e:
-                raise BAD_ARGUMENT(str(e))
+            
+            # Only compute indicators if we have any
+            if ind_list:
+                try:
+                    df = compute(df, ind_list)
+                except ValueError as e:
+                    raise BAD_ARGUMENT(str(e))
 
         # Convert DataFrame to the expected response format
         candles_data = []
