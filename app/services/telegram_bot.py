@@ -14,6 +14,7 @@ async def send(text: str, reply_markup: Optional[Dict[str, Any]] = None):
     
     url = f"https://api.telegram.org/bot{settings.TG_BOT_TOKEN}/sendMessage"
     
+    # Try with Markdown first
     payload = {
         "chat_id": settings.TG_CHAT_ID, 
         "text": text,
@@ -30,6 +31,23 @@ async def send(text: str, reply_markup: Optional[Dict[str, Any]] = None):
             if response.status_code == 200:
                 logger.info("✅ Telegram message sent successfully")
                 return True
+            elif response.status_code == 400 and "parse entities" in response.text:
+                # Markdown parsing failed, try without parse_mode
+                logger.warning("⚠️ Markdown parsing failed, retrying without formatting")
+                del payload["parse_mode"]
+                
+                # Clean text from markdown
+                clean_text = text.replace("**", "").replace("*", "").replace("_", "").replace("`", "")
+                payload["text"] = clean_text
+                
+                response = await client.post(url, data=payload)
+                
+                if response.status_code == 200:
+                    logger.info("✅ Telegram message sent successfully (plain text)")
+                    return True
+                else:
+                    logger.error(f"❌ Telegram API error: {response.status_code} - {response.text}")
+                    return False
             else:
                 logger.error(f"❌ Telegram API error: {response.status_code} - {response.text}")
                 return False

@@ -223,23 +223,21 @@ async def handle_message(message: dict):
 
 async def send_help_message():
     """Send help message with available commands"""
-    help_text = """
-🤖 **Crypto Analyzer Bot** 🤖
+    help_text = """🤖 Crypto Analyzer Bot 🤖
 
-**Verfügbare Befehle:**
-• `/alerts` - Alert-Verwaltung
-• `/status` - System-Status
-• `/monitoring` - Monitoring ein/aus
-• `/help` - Diese Hilfe
+Verfügbare Befehle:
+• /alerts - Alert-Verwaltung
+• /status - System-Status
+• /monitoring - Monitoring ein/aus
+• /help - Diese Hilfe
 
-**Alert-System:**
+Alert-System:
 Das System überwacht Preise alle 20 Sekunden und sendet automatisch Benachrichtigungen bei Auslösung.
 
-**Dein GPT kann über die API neue Alerts erstellen:**
-`POST /gpt-alerts/price-above`
-`POST /gpt-alerts/price-below`
-`POST /gpt-alerts/breakout`
-"""
+Dein GPT kann über die API neue Alerts erstellen:
+POST /gpt-alerts/price-above
+POST /gpt-alerts/price-below
+POST /gpt-alerts/breakout"""
     await send(help_text)
 
 async def send_alert_control_panel():
@@ -247,15 +245,13 @@ async def send_alert_control_panel():
     alert_system = get_alert_system()
     active_alerts = alert_system.get_active_alerts()
     
-    text = f"""
-📊 **Alert Control Panel** 📊
+    text = f"""📊 Alert Control Panel 📊
 
-**Aktive Alerts:** {len(active_alerts)}
-**Monitoring:** {'✅ Running' if alert_system.running else '❌ Stopped'}
-**Letzte Prüfung:** {datetime.now().strftime('%H:%M:%S')}
+Aktive Alerts: {len(active_alerts)}
+Monitoring: {'✅ Running' if alert_system.running else '❌ Stopped'}
+Letzte Prüfung: {datetime.now().strftime('%H:%M:%S')}
 
-Wähle eine Option:
-"""
+Wähle eine Option:"""
     
     buttons = [
         [
@@ -279,22 +275,19 @@ async def show_active_alerts(message_id: Optional[int] = None):
     active_alerts = alert_system.get_active_alerts()
     
     if not active_alerts:
-        text = """
-📋 **Aktive Alerts** 📋
+        text = """📋 Aktive Alerts 📋
 
 Keine aktiven Alerts vorhanden.
 
 Dein GPT kann neue Alerts über die API erstellen:
-• `/gpt-alerts/price-above`
-• `/gpt-alerts/price-below`
-• `/gpt-alerts/breakout`
-"""
+• /gpt-alerts/price-above
+• /gpt-alerts/price-below
+• /gpt-alerts/breakout"""
         buttons = [
             [{"text": "🔄 Aktualisieren", "callback_data": "refresh_alerts"}]
         ]
     else:
-        text = f"""
-📋 **Aktive Alerts** ({len(active_alerts)})
+        text = f"""📋 Aktive Alerts ({len(active_alerts)})
 
 """
         buttons = []
@@ -323,8 +316,7 @@ Dein GPT kann neue Alerts über die API erstellen:
                 description = alert.description
                 alert_id = alert.id
             
-            text += f"""
-{emoji} **{symbol}**
+            text += f"""{emoji} {symbol}
 Type: {alert_type}
 Target: ${target_price:,.2f}
 Created: {created_at[:10]}

@@ -165,10 +165,10 @@ class SimpleAlertSystem:
         """Create formatted alert message"""
         symbol = alert.symbol
         target = alert.target_price
+        description = alert.description or "No description"
         
         if alert.alert_type == AlertType.PRICE_ABOVE:
-            return f"""
-🚀 **PRICE ALERT** 🚀
+            return f"""🚀 PRICE ALERT 🚀
 
 {symbol}: ${current_price:,.2f}
 Target: ${target:,.2f}
@@ -176,12 +176,10 @@ Status: 📈 ABOVE TARGET
 
 Time: {datetime.now().strftime('%H:%M:%S')}
 
-{alert.description}
-"""
+{description}"""
         
         elif alert.alert_type == AlertType.PRICE_BELOW:
-            return f"""
-📉 **PRICE ALERT** 📉
+            return f"""📉 PRICE ALERT 📉
 
 {symbol}: ${current_price:,.2f}
 Target: ${target:,.2f}
@@ -189,12 +187,10 @@ Status: 📉 BELOW TARGET
 
 Time: {datetime.now().strftime('%H:%M:%S')}
 
-{alert.description}
-"""
+{description}"""
         
         elif alert.alert_type == AlertType.BREAKOUT:
-            return f"""
-🚀 **BREAKOUT ALERT** 🚀
+            return f"""🚀 BREAKOUT ALERT 🚀
 
 {symbol}: ${current_price:,.2f}
 Level: ${target:,.2f}
@@ -202,8 +198,7 @@ Status: ⚡ BREAKOUT
 
 Time: {datetime.now().strftime('%H:%M:%S')}
 
-{alert.description}
-"""
+{description}"""
         
         return f"Alert: {symbol} @ ${current_price:,.2f}"
     
