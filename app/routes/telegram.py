@@ -227,6 +227,38 @@ async def handle_callback_query(callback_query: dict):
         await show_active_alerts(message.get("message_id"))
         await answer_callback_query(callback_query_id, "Alert gelöscht")
         
+    elif callback_data == "show_all_alerts":
+        await show_all_alerts_detailed(message.get("message_id"))
+        await answer_callback_query(callback_query_id, "Alle Alerts geladen")
+        
+    elif callback_data == "create_alert_menu":
+        await show_create_alert_menu(message.get("message_id"))
+        await answer_callback_query(callback_query_id, "Alert-Erstellung geöffnet")
+        
+    elif callback_data == "trading_monitor":
+        await show_trading_monitor(message.get("message_id"))
+        await answer_callback_query(callback_query_id, "Trading Monitor geladen")
+        
+    elif callback_data == "portfolio_watch":
+        await show_portfolio_watch(message.get("message_id"))
+        await answer_callback_query(callback_query_id, "Portfolio Watch geladen")
+        
+    elif callback_data == "alert_types_menu":
+        await show_alert_types_menu(message.get("message_id"))
+        await answer_callback_query(callback_query_id, "Alert-Typen angezeigt")
+        
+    elif callback_data == "performance_stats":
+        await show_performance_stats(message.get("message_id"))
+        await answer_callback_query(callback_query_id, "Performance-Statistiken geladen")
+        
+    elif callback_data == "settings_menu":
+        await show_settings_menu(message.get("message_id"))
+        await answer_callback_query(callback_query_id, "Einstellungen geöffnet")
+        
+    elif callback_data == "help_menu":
+        await show_help_menu(message.get("message_id"))
+        await answer_callback_query(callback_query_id, "Hilfe angezeigt")
+        
     elif callback_data == "refresh_alerts":
         await show_active_alerts(message.get("message_id"))
         await answer_callback_query(callback_query_id, "Alerts aktualisiert")
@@ -249,29 +281,43 @@ async def handle_message(message: dict):
         await send_main_menu()
 
 async def send_main_menu():
-    """Send main menu with navigation buttons"""
+    """Send enhanced main menu with all important functions"""
     alert_system = get_alert_system()
     active_alerts = alert_system.get_active_alerts()
     
+    # Get stream statistics
+    streaming_symbols = list(alert_system.price_streams.keys())
+    total_streams = len(streaming_symbols)
+    
     text = f"""🤖 **Crypto Analyzer Bot** 🤖
 
-Willkommen! Hier ist dein Hauptmenü:
+📊 **System Status:**
+• Alerts: {len(active_alerts)} aktiv
+• Streams: {total_streams} laufend
+• Monitoring: {'🟢 Online' if alert_system.running else '🔴 Offline'}
 
-📊 **Status:**
-• Aktive Alerts: {len(active_alerts)}
-• Monitoring: {'✅ Running' if alert_system.running else '❌ Stopped'}
-• Letzte Prüfung: {datetime.now().strftime('%H:%M:%S')}
-
-Wähle eine Option:"""
+Wähle eine Funktion:"""
     
     buttons = [
         [
-            {"text": "📋 Alerts verwalten", "callback_data": "show_alerts"},
-            {"text": "🔄 System Status", "callback_data": "system_status"}
+            {"text": "📋 Alle Alerts", "callback_data": "show_all_alerts"},
+            {"text": "➕ Neuer Alert", "callback_data": "create_alert_menu"}
         ],
         [
-            {"text": "⚡ Monitoring", "callback_data": "toggle_monitoring"},
-            {"text": "❓ Hilfe", "callback_data": "help"}
+            {"text": "📡 Live Streams", "callback_data": "show_streams"},
+            {"text": "💹 Trading Monitor", "callback_data": "trading_monitor"}
+        ],
+        [
+            {"text": "📊 Portfolio Watch", "callback_data": "portfolio_watch"},
+            {"text": "🔔 Alert Typen", "callback_data": "alert_types_menu"}
+        ],
+        [
+            {"text": "⚙️ System Status", "callback_data": "system_status"},
+            {"text": "📈 Performance", "callback_data": "performance_stats"}
+        ],
+        [
+            {"text": "🔧 Einstellungen", "callback_data": "settings_menu"},
+            {"text": "❓ Hilfe", "callback_data": "help_menu"}
         ]
     ]
     
@@ -410,6 +456,174 @@ Description: {description[:50]}...
         buttons.append([
             {"text": "🏠 Hauptmenü", "callback_data": "main_menu"}
         ])
+    
+    if message_id:
+        await edit_message(message_id, text, {"inline_keyboard": [[{"text": button["text"], "callback_data": button["callback_data"]} for button in row] for row in buttons]})
+    else:
+        await send_with_buttons(text, buttons)
+
+async def show_all_alerts_detailed(message_id: Optional[int] = None):
+    """Show comprehensive alert overview with management options"""
+    alert_system = get_alert_system()
+    active_alerts = alert_system.get_active_alerts()
+    
+    if not active_alerts:
+        text = """📋 **Alle Alerts** 📋
+
+❌ Keine aktiven Alerts vorhanden.
+
+**Schnell-Aktionen:**
+• Verwende /create um neue Alerts zu erstellen
+• GPT kann Alerts über die API erstellen
+• Nutze das Menü für Alert-Vorlagen"""
+        
+        buttons = [
+            [{"text": "➕ Neuer Alert", "callback_data": "create_alert_menu"}],
+            [{"text": "📡 Alert-Typen", "callback_data": "alert_types_menu"}],
+            [{"text": "🏠 Hauptmenü", "callback_data": "main_menu"}]
+        ]
+    else:
+        # Group alerts by symbol
+        symbol_alerts = {}
+        for alert in active_alerts:
+            if alert.symbol not in symbol_alerts:
+                symbol_alerts[alert.symbol] = []
+            symbol_alerts[alert.symbol].append(alert)
+        
+        text = f"""📋 **Alle Alerts ({len(active_alerts)})** 📋
+
+"""
+        
+        buttons = []
+        alert_count = 0
+        
+        for symbol, alerts in symbol_alerts.items():
+            current_price = alert_system.price_cache.get(symbol, 0)
+            stream_active = symbol in alert_system.price_streams
+            stream_emoji = "🔴" if not stream_active else "🟢"
+            
+            text += f"""**{symbol}** {stream_emoji}
+Current: ${current_price:,.2f}
+Alerts: {len(alerts)}
+
+"""
+            
+            for alert in alerts[:3]:  # Show max 3 alerts per symbol
+                alert_count += 1
+                type_emoji = {"price_above": "📈", "price_below": "📉", "breakout": "🚀"}.get(alert.alert_type, "📊")
+                
+                text += f"{type_emoji} {alert.alert_type.replace('_', ' ').title()}: ${alert.target_price:,.2f}\n"
+                text += f"   📝 {alert.description[:30]}...\n"
+                
+                # Add delete button for each alert
+                if alert_count <= 5:  # Limit buttons to avoid Telegram limits
+                    buttons.append([
+                        {"text": f"❌ Delete {symbol} Alert", "callback_data": f"delete_alert_{alert.id}"}
+                    ])
+            
+            if len(alerts) > 3:
+                text += f"   ... und {len(alerts) - 3} weitere\n"
+            
+            text += "\n"
+        
+        # Add control buttons
+        buttons.extend([
+            [{"text": "🔄 Aktualisieren", "callback_data": "show_all_alerts"}],
+            [{"text": "➕ Neuer Alert", "callback_data": "create_alert_menu"}],
+            [{"text": "🗑️ Alle löschen", "callback_data": "delete_all_alerts"}],
+            [{"text": "🏠 Hauptmenü", "callback_data": "main_menu"}]
+        ])
+    
+    if message_id:
+        await edit_message(message_id, text, {"inline_keyboard": [[{"text": button["text"], "callback_data": button["callback_data"]} for button in row] for row in buttons]})
+    else:
+        await send_with_buttons(text, buttons)
+
+async def show_create_alert_menu(message_id: Optional[int] = None):
+    """Show alert creation options"""
+    text = """➕ **Neuer Alert erstellen** ➕
+
+**Verfügbare Alert-Typen:**
+
+📈 **Price Above** - Benachrichtigung wenn Preis über Ziel steigt
+📉 **Price Below** - Benachrichtigung wenn Preis unter Ziel fällt  
+🚀 **Breakout** - Benachrichtigung bei Durchbruch über Widerstand
+
+**Erstellung über:**
+• GPT-Commands über API
+• Telegram-Bot Buttons unten
+• Direkte API-Calls
+
+**Beliebte Symbole:** BTCUSDT, ETHUSDT, BNBUSDT, ADAUSDT, SOLUSDT"""
+    
+    buttons = [
+        [
+            {"text": "📈 Price Above", "callback_data": "create_price_above"},
+            {"text": "📉 Price Below", "callback_data": "create_price_below"}
+        ],
+        [
+            {"text": "🚀 Breakout Alert", "callback_data": "create_breakout"}
+        ],
+        [
+            {"text": "📊 Beliebte Coins", "callback_data": "popular_coins"},
+            {"text": "🎯 Vorlagen", "callback_data": "alert_templates"}
+        ],
+        [
+            {"text": "🏠 Hauptmenü", "callback_data": "main_menu"}
+        ]
+    ]
+    
+    if message_id:
+        await edit_message(message_id, text, {"inline_keyboard": [[{"text": button["text"], "callback_data": button["callback_data"]} for button in row] for row in buttons]})
+    else:
+        await send_with_buttons(text, buttons)
+
+async def show_trading_monitor(message_id: Optional[int] = None):
+    """Show trading position monitoring interface"""
+    alert_system = get_alert_system()
+    
+    text = """💹 **Trading Position Monitor** 💹
+
+**Überwache deine Trading-Positionen in Echtzeit!**
+
+🎯 **Features:**
+• Entry/Exit Punkt Alerts
+• Stop-Loss Überwachung  
+• Take-Profit Benachrichtigungen
+• Position-Size Tracking
+• Risk-Management Alerts
+
+**Aktuelle Monitoring:**"""
+    
+    # Check for trading-related alerts
+    trading_alerts = [alert for alert in alert_system.get_active_alerts() 
+                     if any(keyword in alert.description.lower() 
+                           for keyword in ['entry', 'exit', 'stop', 'profit', 'position'])]
+    
+    if trading_alerts:
+        text += f"\n• {len(trading_alerts)} Trading-Alerts aktiv"
+        for alert in trading_alerts[:3]:
+            text += f"\n  📊 {alert.symbol}: ${alert.target_price:,.2f}"
+    else:
+        text += "\n• Keine Trading-Alerts aktiv"
+    
+    buttons = [
+        [
+            {"text": "🎯 Entry Alert", "callback_data": "create_entry_alert"},
+            {"text": "🛑 Stop Loss", "callback_data": "create_stop_loss"}
+        ],
+        [
+            {"text": "💰 Take Profit", "callback_data": "create_take_profit"},
+            {"text": "⚖️ Position Size", "callback_data": "position_alerts"}
+        ],
+        [
+            {"text": "📊 Trading Stats", "callback_data": "trading_stats"},
+            {"text": "🔔 Risk Alerts", "callback_data": "risk_alerts"}
+        ],
+        [
+            {"text": "🏠 Hauptmenü", "callback_data": "main_menu"}
+        ]
+    ]
     
     if message_id:
         await edit_message(message_id, text, {"inline_keyboard": [[{"text": button["text"], "callback_data": button["callback_data"]} for button in row] for row in buttons]})

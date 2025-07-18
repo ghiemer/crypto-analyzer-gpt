@@ -14,6 +14,7 @@ import uuid
 from ..core.settings import settings
 from ..services.telegram_bot import send
 from ..services.bitget import candles
+from .universal_stream import get_stream_service, StreamType
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +34,7 @@ class SimpleAlert:
         self.description = description
         self.created_at = datetime.now().isoformat()
         self.triggered = False
+        self.subscription_id: Optional[str] = None  # For universal stream subscription
     
     def to_dict(self) -> Dict:
         return {
@@ -68,7 +70,7 @@ class SimpleAlertSystem:
             logger.info(f"ℹ️ Redis not available, using in-memory storage: {e}")
     
     def create_alert(self, symbol: str, alert_type: AlertType, target_price: float, description: str = "") -> str:
-        """Create a new alert and start monitoring"""
+        """Create a new alert and start monitoring via universal stream"""
         alert = SimpleAlert(symbol, alert_type, target_price, description)
         self.alerts[alert.id] = alert
         
@@ -82,11 +84,58 @@ class SimpleAlertSystem:
         
         logger.info(f"📝 Alert created: {symbol} {alert_type.value} @ ${target_price}")
         
-        # Start price stream for this symbol if monitoring is active
+        # Subscribe to universal stream service for this symbol
         if self.running:
-            asyncio.create_task(self.ensure_symbol_stream(symbol))
+            asyncio.create_task(self._subscribe_to_stream(symbol, alert))
         
         return alert.id
+
+    async def _subscribe_to_stream(self, symbol: str, alert: SimpleAlert):
+        """Subscribe to universal stream for alert monitoring"""
+        try:
+            stream_service = get_stream_service()
+            
+            # Create callback for this alert
+            async def alert_callback(subscription, price_data):
+                await self._handle_stream_update(alert, price_data)
+            
+            # Subscribe with alert metadata
+            subscription_id = await stream_service.subscribe(
+                symbol=symbol,
+                stream_type=StreamType.ALERT_MONITORING,
+                callback=alert_callback,
+                interval=5,
+                metadata={
+                    "alert_id": alert.id,
+                    "alert_type": alert.alert_type.value,
+                    "target_price": alert.target_price
+                }
+            )
+            
+            # Store subscription ID with alert
+            alert.subscription_id = subscription_id
+            logger.info(f"📡 Subscribed to stream for {symbol} (alert: {alert.id})")
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to subscribe to stream for {symbol}: {e}")
+
+    async def _handle_stream_update(self, alert: SimpleAlert, price_data: Dict):
+        """Handle price update from universal stream"""
+        try:
+            current_price = price_data["price"]
+            
+            # Update price cache
+            self.price_cache[alert.symbol] = current_price
+            
+            # Check if alert should trigger
+            if await self.check_alert(alert, current_price):
+                # Unsubscribe from stream since alert triggered
+                if hasattr(alert, 'subscription_id') and alert.subscription_id:
+                    stream_service = get_stream_service()
+                    await stream_service.unsubscribe(alert.subscription_id)
+                    
+        except Exception as e:
+            logger.error(f"❌ Error handling stream update for alert {alert.id}: {e}")
     
     def get_alert(self, alert_id: str) -> Optional[SimpleAlert]:
         """Get alert by ID"""
