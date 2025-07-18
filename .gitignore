@@ -178,12 +178,24 @@ celerybeat.pid
 
 # Environments
 .env
+.env.local
+.env.development
+.env.dev
 .venv
 env/
 venv/
 ENV/
 env.bak/
 venv.bak/
+
+# Development files
+docker-compose.override.yml
+logs/
+*.log
+
+# Development volumes
+postgres-dev-data/
+redis-dev-data/
 
 # Spyder project settings
 .spyderproject

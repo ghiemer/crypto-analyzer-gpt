@@ -39,8 +39,38 @@
 - Python 3.11 or higher
 - Redis Server
 - PostgreSQL (for Production)
+- Docker (for Development)
 
-### 1. Clone Repository
+### 🏗️ Development Setup (Recommended)
+
+For local development with Docker (recommended approach):
+
+```bash
+# Clone and setup
+git clone https://github.com/ghiemer/crypto-analyzer-gpt.git
+cd crypto-analyzer-gpt
+
+# Quick setup
+./quick-setup.sh
+
+# Configure .env with your settings
+nano .env
+
+# Start development environment
+./dev.sh setup
+./dev.sh start
+```
+
+**Development Features:**
+- 🐳 Docker-based development environment
+- 🔄 Hot reloading for rapid development
+- 🗃️ Uses external Render database for realistic testing
+- 🔒 Isolated `develop` branch keeps `main` stable
+- 🧪 Built-in testing and linting tools
+
+See [DEVELOPMENT.md](DEVELOPMENT.md) for detailed development instructions.
+
+### 📦 Production Setup
 
 ```bash
 git clone https://github.com/ghiemer/crypto-analyzer-gpt.git

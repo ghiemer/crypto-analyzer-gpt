@@ -1,0 +1,39 @@
+# Development files and local testing
+.env
+.env.local
+.env.development
+
+# Docker development volumes
+postgres-dev-data/
+redis-dev-data/
+
+# Development logs
+logs/
+*.log
+
+# IDE and editor files
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*~
+
+# Development testing
+test-outputs/
+coverage/
+.coverage
+htmlcov/
+
+# Local development certificates
+certs/
+ssl/
+
+# Development database dumps
+*.sql
+*.dump
+
+# Temporary development files
+tmp/
+temp/
+.tmp/
+.temp/
