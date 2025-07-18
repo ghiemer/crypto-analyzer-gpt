@@ -9,7 +9,7 @@ from .core.cache import init_cache
 from .core.database import init_db
 from .core.alerts import alert_worker
 from .services.bitget import candles          # fetch_df
-from .routes import api_router, telegram, gpt_alerts
+from .routes import api_router, telegram, gpt_alerts, live_alerts
 from .services.simple_alerts import start_alert_monitoring, stop_alert_monitoring
 
 log = logging.getLogger("uvicorn")
@@ -88,6 +88,7 @@ app.include_router(api_router, dependencies=[Depends(verify)])
 app.include_router(telegram.router, dependencies=[Depends(verify)])
 app.include_router(telegram.webhook_router)  # No auth for webhook
 app.include_router(gpt_alerts.router, dependencies=[Depends(verify)])
+app.include_router(live_alerts.router, dependencies=[Depends(verify)])
 
 # Global exception handler for debugging
 @app.exception_handler(Exception)

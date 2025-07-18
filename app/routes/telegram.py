@@ -217,6 +217,10 @@ async def handle_callback_query(callback_query: dict):
         await show_system_status(message.get("message_id"))
         await answer_callback_query(callback_query_id, "System Status geladen")
         
+    elif callback_data == "show_streams":
+        await show_stream_status(message.get("message_id"))
+        await answer_callback_query(callback_query_id, "Stream Status geladen")
+        
     elif callback_data.startswith("delete_alert_"):
         alert_id = callback_data.replace("delete_alert_", "")
         alert_system.delete_alert(alert_id)
@@ -412,8 +416,54 @@ Description: {description[:50]}...
     else:
         await send_with_buttons(text, buttons)
 
+async def show_stream_status(message_id: Optional[int] = None):
+    """Show live stream status"""
+    alert_system = get_alert_system()
+    active_alerts = alert_system.get_active_alerts()
+    
+    # Group alerts by symbol
+    symbol_alerts = {}
+    for alert in active_alerts:
+        if alert.symbol not in symbol_alerts:
+            symbol_alerts[alert.symbol] = []
+        symbol_alerts[alert.symbol].append(alert)
+    
+    text = f"""📡 **Live Stream Status** 📡
+
+**System:** {'🟢 Online' if alert_system.running else '🔴 Offline'}
+**Total Streams:** {len(alert_system.price_streams)}
+**Check Interval:** {alert_system.check_interval}s
+
+"""
+    
+    if symbol_alerts:
+        text += "**Active Streams:**\n"
+        for symbol, alerts in symbol_alerts.items():
+            stream_active = symbol in alert_system.price_streams
+            last_price = alert_system.price_cache.get(symbol)
+            
+            status_emoji = "🟢" if stream_active else "🔴"
+            price_text = f"${last_price:,.2f}" if last_price else "No data"
+            
+            text += f"{status_emoji} {symbol}: {price_text} ({len(alerts)} alerts)\n"
+    else:
+        text += "**No active streams**\n"
+    
+    text += f"\n**Last Update:** {datetime.now().strftime('%H:%M:%S')}"
+    
+    buttons = [
+        [{"text": "🔄 Refresh", "callback_data": "show_streams"}],
+        [{"text": "🔧 System Status", "callback_data": "system_status"}],
+        [{"text": "🏠 Main Menu", "callback_data": "main_menu"}]
+    ]
+    
+    if message_id:
+        await edit_message(message_id, text, {"inline_keyboard": [[{"text": button["text"], "callback_data": button["callback_data"]} for button in row] for row in buttons]})
+    else:
+        await send_with_buttons(text, buttons)
+
 async def show_system_status(message_id: Optional[int] = None):
-    """Show system status"""
+    """Show enhanced system status"""
     alert_system = get_alert_system()
     stats = alert_system.get_stats()
     
@@ -421,16 +471,18 @@ async def show_system_status(message_id: Optional[int] = None):
     telegram_status = "✅ Configured" if (settings.TG_BOT_TOKEN and settings.TG_CHAT_ID) else "❌ Not configured"
     
     text = f"""
-🔧 **System Status** 🔧
+🔧 **Enhanced System Status** 🔧
 
 **Environment:** {settings.ENVIRONMENT}
 **Redis:** {redis_status}
 **Telegram:** {telegram_status}
-**Monitoring:** {'✅ Running' if alert_system.running else '❌ Stopped'}
+**Live Monitoring:** {'✅ Running' if alert_system.running else '❌ Stopped'}
 
 **Alert Statistics:**
-• Aktive Alerts: {stats['total_active']}
+• Active Alerts: {stats['total_active']}
+• Active Streams: {stats['active_streams']}
 • Check Interval: {alert_system.check_interval}s
+• Stream Symbols: {', '.join(stats['streaming_symbols']) if stats['streaming_symbols'] else 'None'}
 
 **Price Cache:**
 """
@@ -439,13 +491,14 @@ async def show_system_status(message_id: Optional[int] = None):
         text += f"• {symbol}: ${price:,.2f}\n"
     
     if not stats['price_cache']:
-        text += "• Keine Preise gecacht\n"
+        text += "• No prices cached\n"
     
-    text += f"\n**Letzte Aktualisierung:** {datetime.now().strftime('%H:%M:%S')}"
+    text += f"\n**Last Update:** {datetime.now().strftime('%H:%M:%S')}"
     
     buttons = [
-        [{"text": "🔄 Aktualisieren", "callback_data": "system_status"}],
-        [{"text": "🏠 Hauptmenü", "callback_data": "main_menu"}]
+        [{"text": "🔄 Refresh", "callback_data": "system_status"}],
+        [{"text": "📊 Streams", "callback_data": "show_streams"}],
+        [{"text": "🏠 Main Menu", "callback_data": "main_menu"}]
     ]
     
     if message_id:
