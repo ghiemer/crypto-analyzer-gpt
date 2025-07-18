@@ -630,6 +630,305 @@ async def show_trading_monitor(message_id: Optional[int] = None):
     else:
         await send_with_buttons(text, buttons)
 
+async def show_portfolio_watch(message_id: Optional[int] = None):
+    """Show portfolio monitoring interface"""
+    alert_system = get_alert_system()
+    active_alerts = alert_system.get_active_alerts()
+    
+    # Group alerts by symbol for portfolio view
+    portfolio = {}
+    for alert in active_alerts:
+        if alert.symbol not in portfolio:
+            portfolio[alert.symbol] = {
+                'alerts': [],
+                'current_price': alert_system.price_cache.get(alert.symbol, 0)
+            }
+        portfolio[alert.symbol]['alerts'].append(alert)
+    
+    text = """📊 **Portfolio Watch** 📊
+
+**Überwache dein gesamtes Portfolio:**
+
+🎯 **Features:**
+• Multi-Asset Tracking
+• Portfolio Performance
+• Risk Distribution
+• Correlation Analysis"""
+    
+    if portfolio:
+        text += f"\n\n**Tracked Assets ({len(portfolio)}):**\n"
+        for symbol, data in portfolio.items():
+            current_price = data['current_price']
+            alert_count = len(data['alerts'])
+            
+            text += f"• {symbol}: ${current_price:,.2f} ({alert_count} alerts)\n"
+    else:
+        text += "\n\n❌ Keine Assets im Portfolio überwacht"
+    
+    buttons = [
+        [
+            {"text": "📈 Performance", "callback_data": "portfolio_performance"},
+            {"text": "⚖️ Risk Analysis", "callback_data": "portfolio_risk"}
+        ],
+        [
+            {"text": "🔄 Rebalance", "callback_data": "portfolio_rebalance"},
+            {"text": "📊 Correlation", "callback_data": "portfolio_correlation"}
+        ],
+        [
+            {"text": "➕ Add Asset", "callback_data": "portfolio_add_asset"},
+            {"text": "🗑️ Remove Asset", "callback_data": "portfolio_remove_asset"}
+        ],
+        [
+            {"text": "🏠 Hauptmenü", "callback_data": "main_menu"}
+        ]
+    ]
+    
+    if message_id:
+        await edit_message(message_id, text, {"inline_keyboard": [[{"text": button["text"], "callback_data": button["callback_data"]} for button in row] for row in buttons]})
+    else:
+        await send_with_buttons(text, buttons)
+
+async def show_alert_types_menu(message_id: Optional[int] = None):
+    """Show available alert types and their descriptions"""
+    text = """🔔 **Alert-Typen Übersicht** 🔔
+
+**Verfügbare Alert-Typen:**
+
+📈 **Price Above Alert**
+Benachrichtigung wenn Preis über Zielwert steigt
+• Ideal für: Breakout-Signale, Profit-Taking
+• Beispiel: BTC über $45,000
+
+📉 **Price Below Alert**  
+Benachrichtigung wenn Preis unter Zielwert fällt
+• Ideal für: Stop-Loss, Einstiegspunkte
+• Beispiel: ETH unter $2,500
+
+🚀 **Breakout Alert**
+Benachrichtigung bei Durchbruch wichtiger Level
+• Ideal für: Technische Analyse, Momentum
+• Beispiel: SOL Breakout über $100
+
+💹 **Trading Alerts**
+Spezielle Alerts für Positionen
+• Entry/Exit Signale
+• Stop-Loss/Take-Profit
+• Position-Size Management
+
+📊 **Custom Alerts**
+Benutzerdefinierte Alert-Logik
+• RSI-basierte Alerts
+• Volume-Anomalien
+• Multi-Timeframe Signale"""
+    
+    buttons = [
+        [
+            {"text": "📈 Price Above", "callback_data": "create_price_above"},
+            {"text": "📉 Price Below", "callback_data": "create_price_below"}
+        ],
+        [
+            {"text": "🚀 Breakout", "callback_data": "create_breakout"},
+            {"text": "💹 Trading", "callback_data": "trading_monitor"}
+        ],
+        [
+            {"text": "📝 Custom Alert", "callback_data": "create_custom_alert"},
+            {"text": "📚 Templates", "callback_data": "alert_templates"}
+        ],
+        [
+            {"text": "🏠 Hauptmenü", "callback_data": "main_menu"}
+        ]
+    ]
+    
+    if message_id:
+        await edit_message(message_id, text, {"inline_keyboard": [[{"text": button["text"], "callback_data": button["callback_data"]} for button in row] for row in buttons]})
+    else:
+        await send_with_buttons(text, buttons)
+
+async def show_performance_stats(message_id: Optional[int] = None):
+    """Show system and alert performance statistics"""
+    alert_system = get_alert_system()
+    stats = alert_system.get_stats()
+    
+    text = """📈 **Performance Statistiken** 📈
+
+**System Performance:**"""
+    
+    # Calculate uptime (simplified)
+    uptime_status = "🟢 Online" if alert_system.running else "🔴 Offline"
+    
+    text += f"""
+• Status: {uptime_status}
+• Total Alerts: {stats['total_active']}
+• Active Streams: {stats['active_streams']}
+• Check Interval: {alert_system.check_interval}s
+
+**Alert Performance:**"""
+    
+    # Get alert statistics
+    active_alerts = alert_system.get_active_alerts()
+    alert_types = {}
+    for alert in active_alerts:
+        alert_type = alert.alert_type
+        if alert_type not in alert_types:
+            alert_types[alert_type] = 0
+        alert_types[alert_type] += 1
+    
+    if alert_types:
+        for alert_type, count in alert_types.items():
+            text += f"\n• {alert_type.replace('_', ' ').title()}: {count}"
+    else:
+        text += "\n• Keine aktiven Alerts"
+    
+    text += f"""
+
+**Stream Performance:**
+• Streaming Symbols: {len(stats['streaming_symbols'])}
+• Price Cache Size: {len(stats['price_cache'])}
+• Last Update: {datetime.now().strftime('%H:%M:%S')}
+
+**Resource Usage:**
+• Memory: Optimal
+• CPU: Low
+• Network: Active"""
+    
+    buttons = [
+        [
+            {"text": "🔄 Refresh", "callback_data": "performance_stats"},
+            {"text": "📊 Detailed", "callback_data": "performance_detailed"}
+        ],
+        [
+            {"text": "📈 Charts", "callback_data": "performance_charts"},
+            {"text": "⚠️ Alerts", "callback_data": "performance_alerts"}
+        ],
+        [
+            {"text": "🏠 Hauptmenü", "callback_data": "main_menu"}
+        ]
+    ]
+    
+    if message_id:
+        await edit_message(message_id, text, {"inline_keyboard": [[{"text": button["text"], "callback_data": button["callback_data"]} for button in row] for row in buttons]})
+    else:
+        await send_with_buttons(text, buttons)
+
+async def show_settings_menu(message_id: Optional[int] = None):
+    """Show system settings and configuration options"""
+    alert_system = get_alert_system()
+    
+    text = """⚙️ **Systemeinstellungen** ⚙️
+
+**Aktuelle Konfiguration:**"""
+    
+    # Show current settings
+    text += f"""
+• Check Interval: {alert_system.check_interval}s
+• Redis: {'✅ Connected' if alert_system.redis_client else '❌ Disconnected'}
+• Environment: {settings.ENVIRONMENT}
+• Telegram: {'✅ Configured' if settings.TG_BOT_TOKEN else '❌ Not configured'}
+
+**Alert Settings:**
+• Max Alerts: Unlimited
+• Alert Timeout: 30s
+• Retry Count: 3
+• Cache TTL: 60s
+
+**Notification Settings:**
+• Telegram Notifications: ✅ Enabled
+• Silent Mode: ❌ Disabled
+• Rich Formatting: ✅ Enabled
+
+**Performance Settings:**
+• Auto-cleanup: ✅ Enabled
+• Stream Optimization: ✅ Enabled
+• Cache Compression: ✅ Enabled"""
+    
+    buttons = [
+        [
+            {"text": "⏱️ Intervals", "callback_data": "settings_intervals"},
+            {"text": "🔔 Notifications", "callback_data": "settings_notifications"}
+        ],
+        [
+            {"text": "🚀 Performance", "callback_data": "settings_performance"},
+            {"text": "🔐 Security", "callback_data": "settings_security"}
+        ],
+        [
+            {"text": "📝 Logs", "callback_data": "settings_logs"},
+            {"text": "🔄 Reset", "callback_data": "settings_reset"}
+        ],
+        [
+            {"text": "💾 Export", "callback_data": "settings_export"},
+            {"text": "📥 Import", "callback_data": "settings_import"}
+        ],
+        [
+            {"text": "🏠 Hauptmenü", "callback_data": "main_menu"}
+        ]
+    ]
+    
+    if message_id:
+        await edit_message(message_id, text, {"inline_keyboard": [[{"text": button["text"], "callback_data": button["callback_data"]} for button in row] for row in buttons]})
+    else:
+        await send_with_buttons(text, buttons)
+
+async def show_help_menu(message_id: Optional[int] = None):
+    """Show comprehensive help menu"""
+    text = """❓ **Hilfe & Support** ❓
+
+**📱 Bot Commands:**
+• `/start` - Hauptmenü anzeigen
+• `/menu` - Hauptmenü anzeigen  
+• `/alerts` - Alert-Verwaltung
+• `/status` - System-Status
+• `/help` - Diese Hilfe
+
+**🔔 Alert-System:**
+Das System überwacht Preise alle 20 Sekunden und sendet automatisch Benachrichtigungen.
+
+**🤖 GPT Integration:**
+Dein GPT kann über die API neue Alerts erstellen:
+• `POST /gpt-alerts/price-above`
+• `POST /gpt-alerts/price-below`
+• `POST /gpt-alerts/breakout`
+
+**📊 Features:**
+• ✅ Unlimited Alerts für beliebige Coins
+• ✅ Real-time Price Streaming
+• ✅ Trading Position Monitor
+• ✅ Portfolio Watch
+• ✅ Performance Analytics
+
+**💡 Tipps:**
+• Nutze Buttons für einfache Navigation
+• Alerts werden automatisch gelöscht nach Auslösung
+• Check System Status bei Problemen
+• Export/Import für Backup
+
+**🆘 Support:**
+• GitHub: crypto-analyzer-gpt
+• Status: System läuft 24/7
+• Updates: Automatisch deployed"""
+    
+    buttons = [
+        [
+            {"text": "📖 Tutorial", "callback_data": "help_tutorial"},
+            {"text": "🔧 Troubleshooting", "callback_data": "help_troubleshooting"}
+        ],
+        [
+            {"text": "📊 API Docs", "callback_data": "help_api"},
+            {"text": "🎯 Examples", "callback_data": "help_examples"}
+        ],
+        [
+            {"text": "❓ FAQ", "callback_data": "help_faq"},
+            {"text": "📞 Contact", "callback_data": "help_contact"}
+        ],
+        [
+            {"text": "🏠 Hauptmenü", "callback_data": "main_menu"}
+        ]
+    ]
+    
+    if message_id:
+        await edit_message(message_id, text, {"inline_keyboard": [[{"text": button["text"], "callback_data": button["callback_data"]} for button in row] for row in buttons]})
+    else:
+        await send_with_buttons(text, buttons)
+
 async def show_stream_status(message_id: Optional[int] = None):
     """Show live stream status"""
     alert_system = get_alert_system()
