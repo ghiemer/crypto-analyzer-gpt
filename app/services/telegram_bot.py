@@ -3,11 +3,14 @@ import logging
 import json
 from typing import Dict, Any, Optional
 from ..core.settings import settings
+from ..core.logging_config import get_telegram_logger, log_telegram_request, log_telegram_response
 
-logger = logging.getLogger(__name__)
+logger = get_telegram_logger("service")
 
 async def send(text: str, reply_markup: Optional[Dict[str, Any]] = None):
     """Send message to Telegram with improved error handling and optional inline keyboard"""
+    logger.debug("📤 send() called with text length=%d, has_markup=%s", len(text), reply_markup is not None)
+    
     if not (settings.TG_BOT_TOKEN and settings.TG_CHAT_ID):
         logger.warning("⚠️ Telegram not configured - skipping message")
         return False
@@ -23,13 +26,20 @@ async def send(text: str, reply_markup: Optional[Dict[str, Any]] = None):
     
     if reply_markup:
         payload["reply_markup"] = json.dumps(reply_markup)
+        logger.debug("📋 Added reply_markup with %d buttons", len(reply_markup.get('inline_keyboard', [])) if 'inline_keyboard' in reply_markup else 0)
+    
+    log_telegram_request(int(settings.TG_CHAT_ID), "send", payload)
     
     try:
+        logger.debug("🌐 Making HTTP request to Telegram API...")
         async with httpx.AsyncClient(timeout=10) as client:
             response = await client.post(url, data=payload)
             
+            logger.debug("📊 Response status: %d", response.status_code)
+            
             if response.status_code == 200:
                 logger.info("✅ Telegram message sent successfully")
+                log_telegram_response(True, {"status": "ok", "message": "sent"})
                 return True
             elif response.status_code == 400 and "parse entities" in response.text:
                 # Markdown parsing failed, try without parse_mode
@@ -40,13 +50,16 @@ async def send(text: str, reply_markup: Optional[Dict[str, Any]] = None):
                 clean_text = text.replace("**", "").replace("*", "").replace("_", "").replace("`", "")
                 payload["text"] = clean_text
                 
+                logger.debug("🔄 Retrying with plain text...")
                 response = await client.post(url, data=payload)
                 
                 if response.status_code == 200:
                     logger.info("✅ Telegram message sent successfully (plain text)")
+                    log_telegram_response(True, {"status": "ok", "message": "sent_plain"})
                     return True
                 else:
-                    logger.error(f"❌ Telegram API error: {response.status_code} - {response.text}")
+                    logger.error("❌ Telegram API error after retry: %d - %s", response.status_code, response.text[:200])
+                    log_telegram_response(False, {"error": response.text[:200]})
                     return False
             else:
                 logger.error(f"❌ Telegram API error: {response.status_code} - {response.text}")

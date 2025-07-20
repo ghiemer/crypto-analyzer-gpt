@@ -7,11 +7,12 @@ from ..services.telegram_bot import (
 )
 from ..services.simple_alerts import get_alert_system
 from ..core.settings import settings
+from ..core.logging_config import get_telegram_logger, log_telegram_request, log_telegram_response
 from datetime import datetime
 import json
 import logging
 
-logger = logging.getLogger(__name__)
+logger = get_telegram_logger("main")
 
 router = APIRouter(prefix="/telegram", tags=["telegram"])
 
@@ -389,11 +390,19 @@ from typing import Optional
 
 async def show_active_alerts(message_id: Optional[int] = None):
     """Show active alerts with delete buttons"""
-    alert_system = get_alert_system()
-    active_alerts = alert_system.get_active_alerts()
+    logger.info("🔍 show_active_alerts called with message_id=%s", message_id)
     
-    if not active_alerts:
-        text = """📋 Aktive Alerts 📋
+    try:
+        logger.debug("📊 Getting alert system instance...")
+        alert_system = get_alert_system()
+        
+        logger.debug("🔎 Fetching active alerts...")
+        active_alerts = alert_system.get_active_alerts()
+        logger.info("✅ Found %d active alerts", len(active_alerts))
+        
+        if not active_alerts:
+            logger.debug("📋 No active alerts found, showing empty state")
+            text = """📋 Aktive Alerts 📋
 
 Keine aktiven Alerts vorhanden.
 
@@ -401,66 +410,82 @@ Dein GPT kann neue Alerts über die API erstellen:
 • /gpt-alerts/price-above
 • /gpt-alerts/price-below
 • /gpt-alerts/breakout"""
-        buttons = [
-            [{"text": "🔄 Aktualisieren", "callback_data": "refresh_alerts"}],
-            [{"text": "🏠 Hauptmenü", "callback_data": "main_menu"}]
-        ]
-    else:
-        text = f"""📋 Aktive Alerts ({len(active_alerts)})
+            buttons = [
+                [{"text": "🔄 Aktualisieren", "callback_data": "refresh_alerts"}],
+                [{"text": "🏠 Hauptmenü", "callback_data": "main_menu"}]
+            ]
+        else:
+            logger.debug("📋 Building alert list display for %d alerts", len(active_alerts))
+            text = f"""📋 Aktive Alerts ({len(active_alerts)})
 
 """
-        buttons = []
-        
-        for alert in active_alerts[:5]:  # Limit to 5 alerts
-            # Add alert info to text
-            alert_type_emoji = {"price_above": "📈", "price_below": "📉", "breakout": "🚀"}
+            buttons = []
             
-            # Handle both SimpleAlert objects and dictionaries
-            if isinstance(alert, dict):
-                # Dictionary
-                emoji = alert_type_emoji.get(alert.get('alert_type', ''), "📊")
-                symbol = alert.get('symbol', '')
-                alert_type = alert.get('alert_type', '')
-                target_price = alert.get('target_price', 0)
-                created_at = alert.get('created_at', '')
-                description = alert.get('description', '')
-                alert_id = alert.get('id', '')
-            else:
-                # SimpleAlert object
-                emoji = alert_type_emoji.get(alert.alert_type, "📊")
-                symbol = alert.symbol
-                alert_type = alert.alert_type
-                target_price = alert.target_price
-                created_at = alert.created_at
-                description = alert.description
-                alert_id = alert.id
-            
-            text += f"""{emoji} {symbol}
+            for alert in active_alerts[:5]:  # Limit to 5 alerts
+                # Add alert info to text
+                alert_type_emoji = {"price_above": "📈", "price_below": "📉", "breakout": "🚀"}
+                
+                # Handle both SimpleAlert objects and dictionaries
+                if isinstance(alert, dict):
+                    # Dictionary
+                    emoji = alert_type_emoji.get(alert.get('alert_type', ''), "📊")
+                    symbol = alert.get('symbol', '')
+                    alert_type = alert.get('alert_type', '')
+                    target_price = alert.get('target_price', 0)
+                    created_at = alert.get('created_at', '')
+                    description = alert.get('description', '')
+                    alert_id = alert.get('id', '')
+                else:
+                    # SimpleAlert object
+                    emoji = alert_type_emoji.get(alert.alert_type, "📊")
+                    symbol = alert.symbol
+                    alert_type = alert.alert_type
+                    target_price = alert.target_price
+                    created_at = alert.created_at
+                    description = alert.description
+                    alert_id = alert.id
+                
+                text += f"""{emoji} {symbol}
 Type: {alert_type}
 Target: ${target_price:,.2f}
 Created: {created_at[:10]}
 Description: {description[:50]}...
 
 """
+                
+                # Add delete button
+                buttons.append([
+                    {"text": f"❌ Delete {symbol}", "callback_data": f"delete_alert_{alert_id}"}
+                ])
             
-            # Add delete button
+            # Add refresh button
             buttons.append([
-                {"text": f"❌ Delete {symbol}", "callback_data": f"delete_alert_{alert_id}"}
+                {"text": "🔄 Aktualisieren", "callback_data": "refresh_alerts"}
+            ])
+            # Add back to main menu button
+            buttons.append([
+                {"text": "🏠 Hauptmenü", "callback_data": "main_menu"}
             ])
         
-        # Add refresh button
-        buttons.append([
-            {"text": "🔄 Aktualisieren", "callback_data": "refresh_alerts"}
-        ])
-        # Add back to main menu button
-        buttons.append([
-            {"text": "🏠 Hauptmenü", "callback_data": "main_menu"}
-        ])
-    
-    if message_id:
-        await edit_message(message_id, text, {"inline_keyboard": [[{"text": button["text"], "callback_data": button["callback_data"]} for button in row] for row in buttons]})
-    else:
-        await send_with_buttons(text, buttons)
+        logger.debug("💬 Sending telegram message with %d buttons", len([btn for row in buttons for btn in row]))
+        
+        if message_id:
+            logger.debug("✏️ Editing existing message (ID: %s)", message_id)
+            await edit_message(message_id, text, {"inline_keyboard": [[{"text": button["text"], "callback_data": button["callback_data"]} for button in row] for row in buttons]})
+            logger.info("✅ Message edited successfully")
+        else:
+            logger.debug("📤 Sending new message with buttons")
+            await send_with_buttons(text, buttons)
+            logger.info("✅ Message sent successfully")
+            
+    except Exception as e:
+        logger.error("❌ Error in show_active_alerts: %s", str(e))
+        error_text = f"❌ Fehler beim Laden der Alerts: {str(e)}"
+        if message_id:
+            await edit_message(message_id, error_text, {"inline_keyboard": [[{"text": "🏠 Hauptmenü", "callback_data": "main_menu"}]]})
+        else:
+            await send(error_text)
+        raise HTTPException(status_code=500, detail=str(e))
 
 async def show_all_alerts_detailed(message_id: Optional[int] = None):
     """Show comprehensive alert overview with management options"""
