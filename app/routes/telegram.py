@@ -12,8 +12,59 @@ from ..core.logging_config import get_telegram_logger, log_telegram_request, log
 from datetime import datetime
 import json
 import logging
+import httpx
+import asyncio
 
 logger = get_telegram_logger("main")
+
+async def get_all_alerts():
+    """Get alerts from both Simple Alert System and GPT Alert System"""
+    logger.debug("🔍 Fetching alerts from all systems...")
+    
+    all_alerts = []
+    
+    # 1. Try Simple Alert System (Redis-based)
+    try:
+        logger.debug("📊 Getting simple alert system instance...")
+        alert_system = get_alert_system()
+        simple_alerts = alert_system.get_active_alerts()
+        logger.info("✅ Found %d simple alerts", len(simple_alerts))
+        all_alerts.extend(simple_alerts)
+    except Exception as e:
+        logger.warning("⚠️ Simple alert system failed: %s", str(e))
+    
+    # 2. Try GPT Alert System (API-based)
+    try:
+        logger.debug("🤖 Fetching GPT alerts via internal API...")
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                "http://localhost:8000/gpt-alerts/list",
+                headers={"X-API-Key": settings.API_KEY} if hasattr(settings, 'API_KEY') else {},
+                timeout=5.0
+            )
+            if response.status_code == 200:
+                gpt_alerts = response.json()
+                logger.info("✅ Found %d GPT alerts", len(gpt_alerts))
+                
+                # Convert GPT alerts to compatible format
+                for alert in gpt_alerts:
+                    compatible_alert = {
+                        'id': alert.get('id'),
+                        'symbol': alert.get('symbol'),
+                        'alert_type': alert.get('alert_type'),
+                        'target_price': alert.get('target_price'),
+                        'description': alert.get('description', ''),
+                        'created_at': alert.get('created_at', ''),
+                        'source': 'gpt'  # Mark as GPT alert
+                    }
+                    all_alerts.append(compatible_alert)
+            else:
+                logger.warning("⚠️ GPT alerts API returned %d", response.status_code)
+    except Exception as e:
+        logger.warning("⚠️ GPT alert system failed: %s", str(e))
+    
+    logger.info("📊 Total alerts found: %d", len(all_alerts))
+    return all_alerts
 
 router = APIRouter(prefix="/telegram", tags=["telegram"])
 
@@ -299,46 +350,59 @@ async def handle_message(message: dict):
 
 async def send_main_menu():
     """Send enhanced main menu with all important functions"""
-    alert_system = get_alert_system()
-    active_alerts = alert_system.get_active_alerts()
-    
-    # Get stream statistics
-    streaming_symbols = list(alert_system.price_streams.keys())
-    total_streams = len(streaming_symbols)
-    
-    text = f"""🤖 **Crypto Analyzer Bot** 🤖
+    try:
+        # Get alerts from all systems
+        all_alerts = await get_all_alerts()
+        
+        # Try to get simple alert system stats
+        total_streams = 0
+        monitoring_online = False
+        try:
+            alert_system = get_alert_system()
+            streaming_symbols = list(alert_system.price_streams.keys())
+            total_streams = len(streaming_symbols)
+            monitoring_online = alert_system.running
+        except Exception as e:
+            logger.warning("⚠️ Could not get stream stats: %s", str(e))
+        
+        text = f"""🤖 **Crypto Analyzer Bot** 🤖
 
 📊 **System Status:**
-• Alerts: {len(active_alerts)} aktiv
+• Alerts: {len(all_alerts)} aktiv
 • Streams: {total_streams} laufend
-• Monitoring: {'🟢 Online' if alert_system.running else '🔴 Offline'}
+• Monitoring: {'🟢 Online' if monitoring_online else '🔴 Offline'}
 
 Wähle eine Funktion:"""
-    
-    buttons = [
-        [
-            {"text": "📋 Alle Alerts", "callback_data": "show_all_alerts"},
-            {"text": "➕ Neuer Alert", "callback_data": "create_alert_menu"}
-        ],
-        [
-            {"text": "📡 Live Streams", "callback_data": "show_streams"},
-            {"text": "💹 Trading Monitor", "callback_data": "trading_monitor"}
-        ],
-        [
-            {"text": "📊 Portfolio Watch", "callback_data": "portfolio_watch"},
-            {"text": "🔔 Alert Typen", "callback_data": "alert_types_menu"}
-        ],
-        [
-            {"text": "⚙️ System Status", "callback_data": "system_status"},
-            {"text": "📈 Performance", "callback_data": "performance_stats"}
-        ],
-        [
-            {"text": "🔧 Einstellungen", "callback_data": "settings_menu"},
-            {"text": "❓ Hilfe", "callback_data": "help_menu"}
+        
+        buttons = [
+            [
+                {"text": "📋 Alle Alerts", "callback_data": "show_all_alerts"},
+                {"text": "➕ Neuer Alert", "callback_data": "create_alert_menu"}
+            ],
+            [
+                {"text": "📡 Live Streams", "callback_data": "show_streams"},
+                {"text": "💹 Trading Monitor", "callback_data": "trading_monitor"}
+            ],
+            [
+                {"text": "📊 Portfolio Watch", "callback_data": "portfolio_watch"},
+                {"text": "🔔 Alert Typen", "callback_data": "alert_types_menu"}
+            ],
+            [
+                {"text": "⚙️ System Status", "callback_data": "system_status"},
+                {"text": "📈 Performance", "callback_data": "performance_stats"}
+            ],
+            [
+                {"text": "🔧 Einstellungen", "callback_data": "settings_menu"},
+                {"text": "❓ Hilfe", "callback_data": "help_menu"}
+            ]
         ]
-    ]
-    
-    await send_with_buttons(text, buttons)
+        
+        await send_with_buttons(text, buttons)
+        
+    except Exception as e:
+        logger.error("❌ Error in send_main_menu: %s", str(e))
+        # Fallback simple menu
+        await send("🤖 **Crypto Analyzer Bot**\n\nVerfügbare Befehle:\n• `/alerts` - Alerts anzeigen\n• `/help` - Hilfe")
 
 async def send_help_message():
     """Send help message with available commands"""
@@ -409,12 +473,9 @@ async def show_active_alerts(message_id: Optional[int] = None):
     logger.info("🔍 show_active_alerts called with message_id=%s", message_id)
     
     try:
-        logger.debug("📊 Getting alert system instance...")
-        alert_system = get_alert_system()
-        
-        logger.debug("🔎 Fetching active alerts...")
-        active_alerts = alert_system.get_active_alerts()
-        logger.info("✅ Found %d active alerts", len(active_alerts))
+        logger.debug("� Fetching all alerts from combined systems...")
+        active_alerts = await get_all_alerts()
+        logger.info("✅ Found %d total alerts", len(active_alerts))
         
         if not active_alerts:
             logger.debug("📋 No active alerts found, showing empty state")
@@ -443,11 +504,13 @@ Dein GPT kann neue Alerts über die API erstellen:
                 
                 # Handle both SimpleAlert objects and dictionaries
                 if isinstance(alert, dict):
-                    # Dictionary
+                    # Dictionary (including GPT alerts)
                     emoji = alert_type_emoji.get(alert.get('alert_type', ''), "📊")
                     symbol = alert.get('symbol', '')
                     alert_type = alert.get('alert_type', '')
                     target_price = alert.get('target_price', 0)
+                    source = alert.get('source', 'simple')
+                    alert_id = alert.get('id', '')
                     created_at = alert.get('created_at', '')
                     description = alert.get('description', '')
                     alert_id = alert.get('id', '')
