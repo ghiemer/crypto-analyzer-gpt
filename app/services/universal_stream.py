@@ -208,6 +208,13 @@ class UniversalStreamService:
                 change = current_price - previous_price
                 change_percent = (change / previous_price) * 100 if previous_price > 0 else 0
                 
+                # Handle different volume column names (Bitget uses vol_base)
+                volume = 0
+                for vol_col in ["vol_base", "volume", "vol_quote", "vol_usdt"]:
+                    if vol_col in current.index:
+                        volume = float(current[vol_col])
+                        break
+                
                 return {
                     "symbol": symbol,
                     "price": current_price,
@@ -215,13 +222,20 @@ class UniversalStreamService:
                     "open": float(current["open"]),
                     "high": float(current["high"]),
                     "low": float(current["low"]),
-                    "volume": float(current["volume"]),
+                    "volume": volume,
                     "change": change,
                     "change_percent": change_percent,
                     "previous_price": previous_price
                 }
         except Exception as e:
             logger.error(f"Error getting enhanced price data for {symbol}: {e}")
+            # Log available columns for debugging
+            try:
+                data = await candles(symbol, limit=1)
+                if data is not None and not data.empty:
+                    logger.debug(f"Available columns for {symbol}: {list(data.columns)}")
+            except:
+                pass
         return None
 
     async def _notify_subscribers(self, symbol: str, price_data: Dict):
