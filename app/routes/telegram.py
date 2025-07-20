@@ -36,9 +36,14 @@ async def get_all_alerts():
     # 2. Try GPT Alert System (API-based)
     try:
         logger.debug("🤖 Fetching GPT alerts via internal API...")
+        
+        # Use internal localhost for production, external URL for debugging
+        base_url = getattr(settings, 'INTERNAL_API_URL', 'http://localhost:8000')
+        api_url = f"{base_url}/gpt-alerts/list"
+        
         async with httpx.AsyncClient() as client:
             response = await client.get(
-                "http://localhost:8000/gpt-alerts/list",
+                api_url,
                 headers={"X-API-Key": settings.API_KEY} if hasattr(settings, 'API_KEY') else {},
                 timeout=5.0
             )
