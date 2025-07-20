@@ -3,11 +3,14 @@ import logging
 import json
 from typing import Dict, Any, Optional
 from ..core.settings import settings
+from ..core.logging_config import get_telegram_logger, log_telegram_request, log_telegram_response
 
-logger = logging.getLogger(__name__)
+logger = get_telegram_logger("service")
 
 async def send(text: str, reply_markup: Optional[Dict[str, Any]] = None):
     """Send message to Telegram with improved error handling and optional inline keyboard"""
+    logger.debug("📤 send() called with text length=%d, has_markup=%s", len(text), reply_markup is not None)
+    
     if not (settings.TG_BOT_TOKEN and settings.TG_CHAT_ID):
         logger.warning("⚠️ Telegram not configured - skipping message")
         return False
@@ -23,13 +26,20 @@ async def send(text: str, reply_markup: Optional[Dict[str, Any]] = None):
     
     if reply_markup:
         payload["reply_markup"] = json.dumps(reply_markup)
+        logger.debug("📋 Added reply_markup with %d buttons", len(reply_markup.get('inline_keyboard', [])) if 'inline_keyboard' in reply_markup else 0)
+    
+    log_telegram_request(int(settings.TG_CHAT_ID), "send", payload)
     
     try:
+        logger.debug("🌐 Making HTTP request to Telegram API...")
         async with httpx.AsyncClient(timeout=10) as client:
             response = await client.post(url, data=payload)
             
+            logger.debug("📊 Response status: %d", response.status_code)
+            
             if response.status_code == 200:
                 logger.info("✅ Telegram message sent successfully")
+                log_telegram_response(True, {"status": "ok", "message": "sent"})
                 return True
             elif response.status_code == 400 and "parse entities" in response.text:
                 # Markdown parsing failed, try without parse_mode
@@ -40,13 +50,16 @@ async def send(text: str, reply_markup: Optional[Dict[str, Any]] = None):
                 clean_text = text.replace("**", "").replace("*", "").replace("_", "").replace("`", "")
                 payload["text"] = clean_text
                 
+                logger.debug("🔄 Retrying with plain text...")
                 response = await client.post(url, data=payload)
                 
                 if response.status_code == 200:
                     logger.info("✅ Telegram message sent successfully (plain text)")
+                    log_telegram_response(True, {"status": "ok", "message": "sent_plain"})
                     return True
                 else:
-                    logger.error(f"❌ Telegram API error: {response.status_code} - {response.text}")
+                    logger.error("❌ Telegram API error after retry: %d - %s", response.status_code, response.text[:200])
+                    log_telegram_response(False, {"error": response.text[:200]})
                     return False
             else:
                 logger.error(f"❌ Telegram API error: {response.status_code} - {response.text}")
@@ -213,3 +226,88 @@ async def get_updates(offset: int = 0):
     except Exception as e:
         logger.error(f"❌ Get updates error: {e}")
         return []
+
+async def set_bot_commands():
+    """Set bot commands menu that appears next to the text input"""
+    if not settings.TG_BOT_TOKEN:
+        logger.warning("⚠️ Telegram bot token not configured")
+        return False
+    
+    url = f"https://api.telegram.org/bot{settings.TG_BOT_TOKEN}/setMyCommands"
+    
+    commands = [
+        {"command": "start", "description": "🚀 Bot starten und Hauptmenü anzeigen"},
+        {"command": "menu", "description": "📋 Hauptmenü anzeigen"},
+        {"command": "alerts", "description": "⚠️ Alert Übersicht anzeigen"},
+        {"command": "new", "description": "➕ Neuen Alert erstellen"},
+        {"command": "status", "description": "📊 System Status anzeigen"},
+        {"command": "streams", "description": "📡 Live Streams anzeigen"},
+        {"command": "portfolio", "description": "💼 Portfolio Watch anzeigen"},
+        {"command": "monitor", "description": "💹 Trading Monitor anzeigen"},
+        {"command": "performance", "description": "📈 Performance Statistiken"},
+        {"command": "settings", "description": "⚙️ Einstellungen verwalten"},
+        {"command": "help", "description": "❓ Hilfe und Befehle anzeigen"}
+    ]
+    
+    payload = {
+        "commands": commands
+    }
+    
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            response = await client.post(url, json=payload)
+            if response.status_code == 200:
+                logger.info("✅ Bot commands menu set successfully")
+                return True
+            else:
+                logger.error(f"❌ Set bot commands error: {response.status_code} - {response.text}")
+                return False
+    except Exception as e:
+        logger.error(f"❌ Set bot commands error: {e}")
+        return False
+
+async def set_chat_menu_button(menu_button_text: str = "📊 Crypto Menu"):
+    """Set the menu button that appears next to the chat input"""
+    if not settings.TG_BOT_TOKEN:
+        logger.warning("⚠️ Telegram bot token not configured")
+        return False
+    
+    url = f"https://api.telegram.org/bot{settings.TG_BOT_TOKEN}/setChatMenuButton"
+    
+    # Set menu button for the specific chat
+    payload = {
+        "chat_id": settings.TG_CHAT_ID,
+        "menu_button": {
+            "type": "commands"
+        }
+    }
+    
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            response = await client.post(url, json=payload)
+            if response.status_code == 200:
+                logger.info(f"✅ Chat menu button set successfully for chat {settings.TG_CHAT_ID}")
+                return True
+            else:
+                logger.error(f"❌ Set chat menu button error: {response.status_code} - {response.text}")
+                return False
+    except Exception as e:
+        logger.error(f"❌ Set chat menu button error: {e}")
+        return False
+
+async def setup_telegram_menu():
+    """Setup complete Telegram menu system (commands + menu button)"""
+    logger.info("🔧 Setting up Telegram menu system...")
+    
+    # Set bot commands (appears when typing /)
+    commands_result = await set_bot_commands()
+    
+    # Set chat menu button (appears next to text input)
+    menu_result = await set_chat_menu_button()
+    
+    if commands_result and menu_result:
+        logger.info("✅ Telegram menu system setup completed successfully")
+        return True
+    else:
+        logger.warning("⚠️ Telegram menu system setup partially failed")
+        return False

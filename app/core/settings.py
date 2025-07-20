@@ -51,6 +51,9 @@ class Settings(BaseSettings):
     API_TIMEOUT: int = 30
     MAX_INDICATORS: int = 10
     MAX_CANDLES: int = 1000
+    
+    # Internal API URL for self-referencing calls
+    INTERNAL_API_URL: str = "http://localhost:8000"
 
     model_config = SettingsConfigDict(
         env_file=".env", 

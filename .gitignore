@@ -26,6 +26,20 @@ share/python-wheels/
 *.egg
 MANIFEST
 
+# Development Files - EXCLUDED FROM PRODUCTION
+.env.test
+.env.dev.example
+.gitignore.dev
+Dockerfile.dev
+docker-compose.dev.yml
+dev.sh
+quick-setup.sh
+debug_candles.py
+test_*.py
+docs/development/
+docs/internal/
+docs/features/
+
 # PyInstaller
 #  Usually these files are written by a python script from a template
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.
@@ -178,12 +192,24 @@ celerybeat.pid
 
 # Environments
 .env
+.env.local
+.env.development
+.env.dev
 .venv
 env/
 venv/
 ENV/
 env.bak/
 venv.bak/
+
+# Development files
+docker-compose.override.yml
+logs/
+*.log
+
+# Development volumes
+postgres-dev-data/
+redis-dev-data/
 
 # Spyder project settings
 .spyderproject

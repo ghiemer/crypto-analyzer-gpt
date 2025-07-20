@@ -8,10 +8,14 @@ from .core.settings import settings
 from .core.cache import init_cache
 from .core.database import init_db
 from .core.alerts import alert_worker
+from .core.logging_config import setup_enhanced_logging
 from .services.bitget import candles          # fetch_df
-from .routes import api_router, telegram, gpt_alerts
+from .routes import api_router, telegram, gpt_alerts, live_alerts, stream
 from .services.simple_alerts import start_alert_monitoring, stop_alert_monitoring
+from .services.universal_stream import start_stream_service, stop_stream_service
 
+# Setup enhanced logging first
+setup_enhanced_logging()
 log = logging.getLogger("uvicorn")
 log.setLevel(settings.LOG_LEVEL)
 
@@ -30,6 +34,9 @@ async def lifespan(app: FastAPI):
     # Start old alert system
     alert_task = asyncio.create_task(alert_worker(lambda sym: candles(sym, limit=50)))
     
+    # Start universal stream service
+    await start_stream_service()
+    
     # Start alert monitoring system
     monitoring_task = asyncio.create_task(start_alert_monitoring())
     
@@ -44,6 +51,9 @@ async def lifespan(app: FastAPI):
     
     # Stop alert monitoring
     await stop_alert_monitoring()
+    
+    # Stop universal stream service
+    await stop_stream_service()
 
 app = FastAPI(
     title="Crypto Signal API",
@@ -88,6 +98,8 @@ app.include_router(api_router, dependencies=[Depends(verify)])
 app.include_router(telegram.router, dependencies=[Depends(verify)])
 app.include_router(telegram.webhook_router)  # No auth for webhook
 app.include_router(gpt_alerts.router, dependencies=[Depends(verify)])
+app.include_router(live_alerts.router, dependencies=[Depends(verify)])
+app.include_router(stream.router, dependencies=[Depends(verify)])
 
 # Global exception handler for debugging
 @app.exception_handler(Exception)
