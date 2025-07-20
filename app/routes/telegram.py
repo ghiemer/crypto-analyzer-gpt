@@ -3,7 +3,8 @@ from pydantic import BaseModel
 from typing import Optional
 from ..services.telegram_bot import (
     send, send_with_buttons, answer_callback_query, edit_message,
-    set_webhook, get_webhook_info, delete_webhook, get_updates
+    set_webhook, get_webhook_info, delete_webhook, get_updates,
+    setup_telegram_menu, set_bot_commands, set_chat_menu_button
 )
 from ..services.simple_alerts import get_alert_system
 from ..core.settings import settings
@@ -270,16 +271,31 @@ async def handle_message(message: dict):
     
     if text.startswith("/start"):
         await send_main_menu()
+    elif text.startswith("/menu"):
+        await send_main_menu()
     elif text.startswith("/help"):
         await send_help_message()
     elif text.startswith("/alerts"):
-        await send_alert_control_panel()
+        await show_active_alerts()
+    elif text.startswith("/new"):
+        await show_create_alert_menu()
     elif text.startswith("/status"):
-        await send_alert_control_panel()
+        await show_system_status()
+    elif text.startswith("/streams"):
+        await show_stream_status()
+    elif text.startswith("/portfolio"):
+        await show_portfolio_watch()
+    elif text.startswith("/monitor"):
+        await show_trading_monitor()
+    elif text.startswith("/performance"):
+        await show_performance_stats()
+    elif text.startswith("/settings"):
+        await show_settings_menu()
     elif text.startswith("/monitoring"):
         await send_alert_control_panel()
-    elif text.startswith("/menu"):
-        await send_main_menu()
+    else:
+        # If no command matches, show help
+        await send_help_message()
 
 async def send_main_menu():
     """Send enhanced main menu with all important functions"""
@@ -1155,6 +1171,62 @@ async def get_webhook_status():
         }
     else:
         return {"error": "Failed to get webhook info"}
+
+@router.post("/setup-menu", summary="Setup Telegram Bot Menu (Commands + Menu Button)")
+async def setup_telegram_bot_menu():
+    """
+    Setup Telegram Bot Menu System
+    - Commands menu (appears when typing /)
+    - Menu button (appears next to text input)
+    """
+    if not settings.TG_BOT_TOKEN:
+        raise HTTPException(status_code=400, detail="TG_BOT_TOKEN not configured")
+    
+    if not settings.TG_CHAT_ID:
+        raise HTTPException(status_code=400, detail="TG_CHAT_ID not configured")
+    
+    # Setup complete menu system
+    success = await setup_telegram_menu()
+    
+    setup_info = f"""
+📱 **Telegram Bot Menu Setup** 📱
+
+**Status:** {'✅ Successfully configured' if success else '❌ Setup failed'}
+
+**Features aktiviert:**
+• 🔧 Command Menu (beim Eingeben von /)
+• 📋 Menu Button (neben der Texteingabe)
+
+**Verfügbare Kommandos:**
+• `/start` - Bot starten und Hauptmenü
+• `/menu` - Hauptmenü anzeigen
+• `/alerts` - Alert Übersicht
+• `/new` - Neuen Alert erstellen
+• `/status` - System Status
+• `/streams` - Live Streams
+• `/portfolio` - Portfolio Watch
+• `/monitor` - Trading Monitor
+• `/performance` - Performance Stats
+• `/settings` - Einstellungen
+• `/help` - Hilfe anzeigen
+
+**💡 Tipp:** Drücke auf das Menu-Symbol neben der Texteingabe für schnellen Zugriff!
+"""
+    
+    # Send setup info to telegram
+    if success:
+        await send(setup_info)
+        
+        # Also send the main menu as confirmation
+        await send_main_menu()
+    
+    return {
+        "success": success,
+        "message": "Menu setup completed" if success else "Menu setup failed",
+        "commands_configured": success,
+        "menu_button_configured": success,
+        "chat_id": settings.TG_CHAT_ID
+    }
 
 @router.post("/test-polling", summary="Test Telegram polling mode")
 async def test_polling():

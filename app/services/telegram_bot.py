@@ -226,3 +226,88 @@ async def get_updates(offset: int = 0):
     except Exception as e:
         logger.error(f"❌ Get updates error: {e}")
         return []
+
+async def set_bot_commands():
+    """Set bot commands menu that appears next to the text input"""
+    if not settings.TG_BOT_TOKEN:
+        logger.warning("⚠️ Telegram bot token not configured")
+        return False
+    
+    url = f"https://api.telegram.org/bot{settings.TG_BOT_TOKEN}/setMyCommands"
+    
+    commands = [
+        {"command": "start", "description": "🚀 Bot starten und Hauptmenü anzeigen"},
+        {"command": "menu", "description": "📋 Hauptmenü anzeigen"},
+        {"command": "alerts", "description": "⚠️ Alert Übersicht anzeigen"},
+        {"command": "new", "description": "➕ Neuen Alert erstellen"},
+        {"command": "status", "description": "📊 System Status anzeigen"},
+        {"command": "streams", "description": "📡 Live Streams anzeigen"},
+        {"command": "portfolio", "description": "💼 Portfolio Watch anzeigen"},
+        {"command": "monitor", "description": "💹 Trading Monitor anzeigen"},
+        {"command": "performance", "description": "📈 Performance Statistiken"},
+        {"command": "settings", "description": "⚙️ Einstellungen verwalten"},
+        {"command": "help", "description": "❓ Hilfe und Befehle anzeigen"}
+    ]
+    
+    payload = {
+        "commands": commands
+    }
+    
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            response = await client.post(url, json=payload)
+            if response.status_code == 200:
+                logger.info("✅ Bot commands menu set successfully")
+                return True
+            else:
+                logger.error(f"❌ Set bot commands error: {response.status_code} - {response.text}")
+                return False
+    except Exception as e:
+        logger.error(f"❌ Set bot commands error: {e}")
+        return False
+
+async def set_chat_menu_button(menu_button_text: str = "📊 Crypto Menu"):
+    """Set the menu button that appears next to the chat input"""
+    if not settings.TG_BOT_TOKEN:
+        logger.warning("⚠️ Telegram bot token not configured")
+        return False
+    
+    url = f"https://api.telegram.org/bot{settings.TG_BOT_TOKEN}/setChatMenuButton"
+    
+    # Set menu button for the specific chat
+    payload = {
+        "chat_id": settings.TG_CHAT_ID,
+        "menu_button": {
+            "type": "commands"
+        }
+    }
+    
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            response = await client.post(url, json=payload)
+            if response.status_code == 200:
+                logger.info(f"✅ Chat menu button set successfully for chat {settings.TG_CHAT_ID}")
+                return True
+            else:
+                logger.error(f"❌ Set chat menu button error: {response.status_code} - {response.text}")
+                return False
+    except Exception as e:
+        logger.error(f"❌ Set chat menu button error: {e}")
+        return False
+
+async def setup_telegram_menu():
+    """Setup complete Telegram menu system (commands + menu button)"""
+    logger.info("🔧 Setting up Telegram menu system...")
+    
+    # Set bot commands (appears when typing /)
+    commands_result = await set_bot_commands()
+    
+    # Set chat menu button (appears next to text input)
+    menu_result = await set_chat_menu_button()
+    
+    if commands_result and menu_result:
+        logger.info("✅ Telegram menu system setup completed successfully")
+        return True
+    else:
+        logger.warning("⚠️ Telegram menu system setup partially failed")
+        return False

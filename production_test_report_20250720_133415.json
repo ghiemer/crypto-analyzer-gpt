@@ -1,0 +1,174 @@
+{
+  "test_run": {
+    "start_time": "2025-07-20T13:34:10.693174",
+    "end_time": "2025-07-20T13:34:15.908482",
+    "base_url": "https://crypto-analyzer-gpt.onrender.com",
+    "total_tests": 18,
+    "successful_tests": 11,
+    "success_rate": 61.111111111111114
+  },
+  "test_results": [
+    {
+      "test": "Health Check",
+      "success": true,
+      "status": 200,
+      "response_time": 201.89523696899414,
+      "volume_check": "N/A",
+      "timestamp": "2025-07-20T13:34:10.895099",
+      "url": "https://crypto-analyzer-gpt.onrender.com/health"
+    },
+    {
+      "test": "API Status",
+      "success": false,
+      "status": 404,
+      "response_time": 141.8631076812744,
+      "volume_check": "N/A",
+      "timestamp": "2025-07-20T13:34:11.037408",
+      "url": "https://crypto-analyzer-gpt.onrender.com/"
+    },
+    {
+      "test": "Version Info",
+      "success": false,
+      "status": 404,
+      "response_time": 157.26184844970703,
+      "volume_check": "N/A",
+      "timestamp": "2025-07-20T13:34:11.195656",
+      "url": "https://crypto-analyzer-gpt.onrender.com/version"
+    },
+    {
+      "test": "Candles - ETHUSDT",
+      "success": true,
+      "status": 200,
+      "response_time": 455.747127532959,
+      "volume_check": "N/A",
+      "timestamp": "2025-07-20T13:34:11.651935",
+      "url": "https://crypto-analyzer-gpt.onrender.com/candles?symbol=ETHUSDT&limit=10"
+    },
+    {
+      "test": "Candles - BTCUSDT",
+      "success": true,
+      "status": 200,
+      "response_time": 486.24110221862793,
+      "volume_check": "N/A",
+      "timestamp": "2025-07-20T13:34:12.138457",
+      "url": "https://crypto-analyzer-gpt.onrender.com/candles?symbol=BTCUSDT&limit=10"
+    },
+    {
+      "test": "News API",
+      "success": false,
+      "status": 422,
+      "response_time": 160.05611419677734,
+      "volume_check": "N/A",
+      "timestamp": "2025-07-20T13:34:12.301804",
+      "url": "https://crypto-analyzer-gpt.onrender.com/news?limit=5"
+    },
+    {
+      "test": "Fear & Greed",
+      "success": true,
+      "status": 200,
+      "response_time": 463.4380340576172,
+      "volume_check": "N/A",
+      "timestamp": "2025-07-20T13:34:12.765602",
+      "url": "https://crypto-analyzer-gpt.onrender.com/feargreed"
+    },
+    {
+      "test": "Orderbook - ETHUSDT",
+      "success": true,
+      "status": 200,
+      "response_time": 465.6980037689209,
+      "volume_check": "N/A",
+      "timestamp": "2025-07-20T13:34:13.231890",
+      "url": "https://crypto-analyzer-gpt.onrender.com/orderbook?symbol=ETHUSDT"
+    },
+    {
+      "test": "List Alerts",
+      "success": true,
+      "status": 200,
+      "response_time": 159.94024276733398,
+      "volume_check": "N/A",
+      "timestamp": "2025-07-20T13:34:13.393408",
+      "url": "https://crypto-analyzer-gpt.onrender.com/gpt-alerts/list"
+    },
+    {
+      "test": "Alert Stats",
+      "success": true,
+      "status": 200,
+      "response_time": 171.58031463623047,
+      "volume_check": "N/A",
+      "timestamp": "2025-07-20T13:34:13.566183",
+      "url": "https://crypto-analyzer-gpt.onrender.com/gpt-alerts/stats"
+    },
+    {
+      "test": "Stream Stats",
+      "success": true,
+      "status": 200,
+      "response_time": 169.71516609191895,
+      "volume_check": "N/A",
+      "timestamp": "2025-07-20T13:34:13.736442",
+      "url": "https://crypto-analyzer-gpt.onrender.com/stream/status"
+    },
+    {
+      "test": "Create Test Alert",
+      "success": false,
+      "status": 422,
+      "response_time": 189.0890598297119,
+      "volume_check": "N/A",
+      "timestamp": "2025-07-20T13:34:13.926151",
+      "url": "https://crypto-analyzer-gpt.onrender.com/gpt-alerts/price-above"
+    },
+    {
+      "test": "RSI Indicator",
+      "success": false,
+      "status": 404,
+      "response_time": 157.98616409301758,
+      "volume_check": "N/A",
+      "timestamp": "2025-07-20T13:34:14.085383",
+      "url": "https://crypto-analyzer-gpt.onrender.com/rsi?symbol=ETHUSDT"
+    },
+    {
+      "test": "SMA Indicator",
+      "success": false,
+      "status": 404,
+      "response_time": 156.97598457336426,
+      "volume_check": "N/A",
+      "timestamp": "2025-07-20T13:34:14.243410",
+      "url": "https://crypto-analyzer-gpt.onrender.com/sma?symbol=ETHUSDT"
+    },
+    {
+      "test": "Perp Trading",
+      "success": false,
+      "status": 404,
+      "response_time": 152.84299850463867,
+      "volume_check": "N/A",
+      "timestamp": "2025-07-20T13:34:14.397287",
+      "url": "https://crypto-analyzer-gpt.onrender.com/perp?symbol=ETHUSDT"
+    },
+    {
+      "test": "Volume Data - ETHUSDT",
+      "success": true,
+      "status": 200,
+      "response_time": 477.2837162017822,
+      "volume_check": "\u2705 Volume OK",
+      "timestamp": "2025-07-20T13:34:14.875047",
+      "url": "https://crypto-analyzer-gpt.onrender.com/candles?symbol=ETHUSDT&limit=1"
+    },
+    {
+      "test": "Volume Data - BTCUSDT",
+      "success": true,
+      "status": 200,
+      "response_time": 482.0742607116699,
+      "volume_check": "\u2705 Volume OK",
+      "timestamp": "2025-07-20T13:34:15.358405",
+      "url": "https://crypto-analyzer-gpt.onrender.com/candles?symbol=BTCUSDT&limit=1"
+    },
+    {
+      "test": "Volume Data - SOLUSDT",
+      "success": true,
+      "status": 200,
+      "response_time": 547.821044921875,
+      "volume_check": "\u2705 Volume OK",
+      "timestamp": "2025-07-20T13:34:15.906945",
+      "url": "https://crypto-analyzer-gpt.onrender.com/candles?symbol=SOLUSDT&limit=1"
+    }
+  ]
+}
