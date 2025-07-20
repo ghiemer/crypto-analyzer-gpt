@@ -37,7 +37,7 @@ async def get_all_alerts():
     try:
         logger.debug("🤖 Fetching GPT alerts via internal API...")
         
-        # Use internal localhost for production, external URL for debugging
+        # Use internal localhost for production
         base_url = getattr(settings, 'INTERNAL_API_URL', 'http://localhost:8000')
         api_url = f"{base_url}/gpt-alerts/list"
         
@@ -1294,41 +1294,4 @@ async def setup_telegram_bot_menu():
         "commands_configured": success,
         "menu_button_configured": success,
         "chat_id": settings.TG_CHAT_ID
-    }
-
-@router.post("/test-polling", summary="Test Telegram polling mode")
-async def test_polling():
-    """Test polling mode for development"""
-    if not settings.TG_BOT_TOKEN:
-        raise HTTPException(status_code=400, detail="TG_BOT_TOKEN not configured")
-    
-    # Delete webhook first
-    await delete_webhook()
-    
-    # Get recent updates
-    updates = await get_updates()
-    
-    # Process each update
-    processed_updates = []
-    for update in updates[-5:]:  # Only process last 5 updates
-        update_info = {
-            "update_id": update.get("update_id"),
-            "type": "message" if "message" in update else "callback_query" if "callback_query" in update else "unknown"
-        }
-        
-        # Process the update
-        if "message" in update:
-            await handle_message(update["message"])
-            update_info["message"] = update["message"].get("text", "")
-        elif "callback_query" in update:
-            await handle_callback_query(update["callback_query"])
-            update_info["callback_data"] = update["callback_query"].get("data", "")
-        
-        processed_updates.append(update_info)
-    
-    return {
-        "success": True,
-        "processed_updates": processed_updates,
-        "total_updates": len(updates),
-        "message": "Polling test completed"
     }

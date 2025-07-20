@@ -163,33 +163,6 @@ async def cancel_subscription(subscription_id: str):
         "symbol": subscription.symbol
     }
 
-@router.post("/test/{symbol}")
-async def test_stream(symbol: str):
-    """Test streaming for a specific symbol"""
-    stream_service = get_stream_service()
-    
-    try:
-        # Get current data to test API connectivity
-        data = await stream_service.get_current_data(symbol)
-        
-        if not data:
-            raise HTTPException(status_code=404, detail=f"Unable to get data for {symbol}")
-        
-        # Check if there are active subscriptions for this symbol
-        subscriptions = stream_service.get_subscriptions(symbol=symbol)
-        
-        return {
-            "status": "success",
-            "symbol": symbol,
-            "current_data": data,
-            "active_subscriptions": len(subscriptions),
-            "stream_active": symbol in stream_service.streams,
-            "test_timestamp": datetime.now().isoformat()
-        }
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Test failed for {symbol}: {str(e)}")
-
 @router.get("/symbols")
 async def get_monitored_symbols():
     """Get all currently monitored symbols with details"""

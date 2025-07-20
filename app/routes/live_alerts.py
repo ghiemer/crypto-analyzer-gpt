@@ -177,34 +177,3 @@ async def get_performance_stats():
             "spam_blocks_active": stats["spam_protection"]
         }
     }
-
-@router.post("/test-stream/{symbol}")
-async def test_symbol_stream(symbol: str):
-    """Test price streaming for a symbol"""
-    alert_system = get_alert_system()
-    symbol = symbol.upper()
-    
-    try:
-        # Test getting current price
-        current_price = await alert_system.get_current_price(symbol)
-        
-        if current_price is None:
-            raise HTTPException(
-                status_code=404, 
-                detail=f"Could not get price data for {symbol}"
-            )
-        
-        return {
-            "status": "success",
-            "symbol": symbol,
-            "current_price": current_price,
-            "cached": symbol in alert_system.price_cache,
-            "stream_active": symbol in alert_system.price_streams,
-            "timestamp": datetime.now().isoformat()
-        }
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error testing stream for {symbol}: {str(e)}"
-        )

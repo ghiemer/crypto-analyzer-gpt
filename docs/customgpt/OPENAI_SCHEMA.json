@@ -156,6 +156,267 @@
         }
       }
     },
+    "/gpt-alerts/price-above": {
+      "post": {
+        "summary": "Create price above alert",
+        "description": "Create an alert that triggers when the price goes above a specified target price. Perfect for breakout notifications and profit-taking alerts.",
+        "operationId": "createPriceAboveAlert",
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "query",
+            "required": true,
+            "description": "Trading pair symbol (e.g., BTCUSDT, ETHUSDT)",
+            "schema": {
+              "type": "string",
+              "example": "ETHUSDT"
+            }
+          },
+          {
+            "name": "target_price",
+            "in": "query",
+            "required": true,
+            "description": "Target price threshold - alert triggers when price goes above this value",
+            "schema": {
+              "type": "number",
+              "format": "float",
+              "example": 3800.0
+            }
+          },
+          {
+            "name": "description",
+            "in": "query",
+            "required": false,
+            "description": "Custom description for the alert",
+            "schema": {
+              "type": "string",
+              "example": "🚀 ETH broke above $3800! Bullish breakout confirmed."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Alert created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlertCreateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - invalid parameters"
+          },
+          "401": {
+            "description": "Unauthorized - invalid API key"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/gpt-alerts/price-below": {
+      "post": {
+        "summary": "Create price below alert",
+        "description": "Create an alert that triggers when the price goes below a specified target price. Perfect for stop-loss notifications and entry point alerts.",
+        "operationId": "createPriceBelowAlert",
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "query",
+            "required": true,
+            "description": "Trading pair symbol (e.g., BTCUSDT, ETHUSDT)",
+            "schema": {
+              "type": "string",
+              "example": "ETHUSDT"
+            }
+          },
+          {
+            "name": "target_price",
+            "in": "query",
+            "required": true,
+            "description": "Target price threshold - alert triggers when price goes below this value",
+            "schema": {
+              "type": "number",
+              "format": "float",
+              "example": 3200.0
+            }
+          },
+          {
+            "name": "description",
+            "in": "query",
+            "required": false,
+            "description": "Custom description for the alert",
+            "schema": {
+              "type": "string",
+              "example": "📉 ETH fell below $3200 support! Consider buying the dip."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Alert created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlertCreateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - invalid parameters"
+          },
+          "401": {
+            "description": "Unauthorized - invalid API key"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/gpt-alerts/breakout": {
+      "post": {
+        "summary": "Create breakout alert",
+        "description": "Create an alert that triggers when price breaks out above a resistance level with volume confirmation. Perfect for momentum trading alerts.",
+        "operationId": "createBreakoutAlert",
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "query",
+            "required": true,
+            "description": "Trading pair symbol (e.g., BTCUSDT, ETHUSDT)",
+            "schema": {
+              "type": "string",
+              "example": "BTCUSDT"
+            }
+          },
+          {
+            "name": "resistance_level",
+            "in": "query",
+            "required": true,
+            "description": "Resistance level to break above",
+            "schema": {
+              "type": "number",
+              "format": "float",
+              "example": 45000.0
+            }
+          },
+          {
+            "name": "description",
+            "in": "query",
+            "required": false,
+            "description": "Custom description for the alert",
+            "schema": {
+              "type": "string",
+              "example": "🚀 BTC breakout above $45K resistance! Momentum building."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Alert created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlertCreateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - invalid parameters"
+          },
+          "401": {
+            "description": "Unauthorized - invalid API key"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/gpt-alerts/list": {
+      "get": {
+        "summary": "List active alerts",
+        "description": "Retrieve all active alerts created by the GPT. Use this to check existing alerts before creating new ones.",
+        "operationId": "listActiveAlerts",
+        "responses": {
+          "200": {
+            "description": "List of active alerts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AlertInfo"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - invalid API key"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/gpt-alerts/delete/{alert_id}": {
+      "delete": {
+        "summary": "Delete specific alert",
+        "description": "Delete a specific alert by its ID. Use this to remove outdated or triggered alerts.",
+        "operationId": "deleteAlert",
+        "parameters": [
+          {
+            "name": "alert_id",
+            "in": "path",
+            "required": true,
+            "description": "Alert ID to delete",
+            "schema": {
+              "type": "string",
+              "example": "9846534a-31a8-4d23-a73a-84db641b3625"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Alert deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Alert deleted successfully"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Alert not found"
+          },
+          "401": {
+            "description": "Unauthorized - invalid API key"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
     "/candles": {
       "get": {
         "summary": "Get candlestick data with technical indicators",
@@ -961,6 +1222,87 @@
           }
         },
         "required": ["symbol", "current_price", "alert_type"]
+      },
+      "AlertCreateResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "success"
+          },
+          "alert_id": {
+            "type": "string",
+            "description": "Unique alert identifier",
+            "example": "9846534a-31a8-4d23-a73a-84db641b3625"
+          },
+          "message": {
+            "type": "string",
+            "example": "Alert created for ETHUSDT price_above @ $3800.0"
+          },
+          "symbol": {
+            "type": "string",
+            "example": "ETHUSDT"
+          },
+          "alert_type": {
+            "type": "string",
+            "enum": ["price_above", "price_below", "breakout"],
+            "example": "price_above"
+          },
+          "target_price": {
+            "type": "number",
+            "format": "float",
+            "example": 3800.0
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": ["status", "alert_id", "message"]
+      },
+      "AlertInfo": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique alert identifier",
+            "example": "9846534a-31a8-4d23-a73a-84db641b3625"
+          },
+          "symbol": {
+            "type": "string",
+            "example": "ETHUSDT"
+          },
+          "alert_type": {
+            "type": "string",
+            "enum": ["price_above", "price_below", "breakout"],
+            "example": "price_above"
+          },
+          "target_price": {
+            "type": "number",
+            "format": "float",
+            "example": 3800.0
+          },
+          "description": {
+            "type": "string",
+            "example": "🚀 ETH broke above $3800! Bullish breakout confirmed."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["active", "triggered", "cancelled"],
+            "example": "active"
+          },
+          "current_price": {
+            "type": "number",
+            "format": "float",
+            "description": "Last known price when alert was checked",
+            "example": 3750.25
+          }
+        },
+        "required": ["id", "symbol", "alert_type", "target_price", "created_at", "status"]
       }
     }
   }
