@@ -9,17 +9,38 @@ from ..helpers.error_handlers import handle_api_errors, ErrorHandler
 from ..utils.validation import validate_symbol
 
 # Optional Redis import and connection
+redis = None
+REDIS_AVAILABLE = False
+
 try:
     from redis import asyncio as aioredis
+    # Create Redis connection but don't test it yet
     redis = aioredis.from_url(settings.REDIS_URL, encoding="utf8", decode_responses=True)
+    # We'll test the connection in the first function call
     REDIS_AVAILABLE = True
+    print("🔄 Redis connection created, will test on first use")
 except Exception as e:
-    print(f"⚠️ Redis not available: {e}")
+    print(f"⚠️ Redis import/creation failed: {e}")
     redis = None
     REDIS_AVAILABLE = False
 
 # In-memory fallback storage when Redis is unavailable
 _memory_alerts: Dict[str, Dict[str, str]] = {}
+
+# Test Redis connection on first use
+async def _test_redis_connection() -> bool:
+    """Test if Redis is actually available by trying to ping it."""
+    global REDIS_AVAILABLE
+    if not REDIS_AVAILABLE or redis is None:
+        return False
+    
+    try:
+        await redis.ping()
+        return True
+    except Exception as e:
+        print(f"⚠️ Redis ping failed: {e}. Switching to in-memory storage.")
+        REDIS_AVAILABLE = False
+        return False
 
 # Enhanced Alert System with Worker Management
 class EnhancedAlertSystem:
@@ -89,8 +110,15 @@ async def delete_alert(user: str, symbol: str) -> None:
 @handle_api_errors("Failed to list alerts")
 async def list_alerts(user: str) -> Dict[str, str]:
     """List all alerts for a user."""
-    if REDIS_AVAILABLE:
-        return await redis.hgetall(f"alert:{user}")  # type: ignore
+    # Test Redis connection on first use
+    redis_works = await _test_redis_connection()
+    
+    if redis_works:
+        try:
+            return await redis.hgetall(f"alert:{user}")  # type: ignore
+        except Exception as e:
+            print(f"⚠️ Redis operation failed: {e}. Using in-memory storage.")
+            return _memory_alerts.get(user, {})
     else:
         # Fallback to in-memory storage
         return _memory_alerts.get(user, {})
