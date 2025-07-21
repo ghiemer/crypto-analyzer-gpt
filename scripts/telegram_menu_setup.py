@@ -11,12 +11,13 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 class TelegramMenuSetup:
-    def __init__(self, base_url: str = "https://crypto-analyzer-gpt.onrender.com"):
+    def __init__(self, base_url: str | None = None):
         # Load environment variables
         env_path = Path(__file__).parent.parent / '.env'
         load_dotenv(env_path)
         
-        self.base_url = base_url
+        # Use environment variable or provided URL or fallback
+        self.base_url = base_url or os.getenv('RENDER_SERVICE_URL') or "http://localhost:8000"
         self.api_key = os.getenv('API_KEY')
         
         if not self.api_key:

@@ -54,6 +54,24 @@ class Settings(BaseSettings):
     
     # Internal API URL for self-referencing calls
     INTERNAL_API_URL: str = "http://localhost:8000"
+    
+    # Render Service Configuration
+    RENDER_SERVICE_ID: str | None = None
+    RENDER_SERVICE_NAME: str | None = None
+    RENDER_SERVICE_URL: str | None = None
+    
+    # Telegram Webhook URL (auto-generated from RENDER_SERVICE_URL if not set)
+    TELEGRAM_WEBHOOK_URL: str | None = None
+    
+    @property
+    def webhook_url(self) -> str:
+        """Get the Telegram webhook URL, auto-generated from RENDER_SERVICE_URL if not explicitly set"""
+        if self.TELEGRAM_WEBHOOK_URL:
+            return self.TELEGRAM_WEBHOOK_URL
+        elif self.RENDER_SERVICE_URL:
+            return f"{self.RENDER_SERVICE_URL}/telegram/webhook"
+        else:
+            return "https://your-app-name.onrender.com/telegram/webhook"
 
     model_config = SettingsConfigDict(
         env_file=".env", 

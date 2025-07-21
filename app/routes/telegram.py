@@ -1167,8 +1167,8 @@ async def setup_telegram_bot():
     if not settings.TG_BOT_TOKEN:
         raise HTTPException(status_code=400, detail="TG_BOT_TOKEN not configured")
     
-    # Set webhook URL
-    webhook_url = f"https://crypto-analyzer-gpt.onrender.com/telegram/webhook"
+    # Set webhook URL using environment variable
+    webhook_url = settings.webhook_url
     
     # Get current webhook info
     webhook_info = await get_webhook_info()
