@@ -355,6 +355,8 @@ class AgentServiceManager:
         from ..services.bitget_client import get_bitget_client
         from ..core.indicators_service import get_indicator_service
         from ..core.cache_manager import get_cache_manager
+        from ..services.feargreed_service import get_fear_greed_service
+        from ..services.telegram_service import get_telegram_service
         
         # Initialize and register tools
         try:
@@ -380,6 +382,20 @@ class AgentServiceManager:
                 cache_tool = CacheAgentTool(cache_manager)
                 self.registry.register_tool(cache_tool, "cache")
                 self.initialized_tools.append("CacheManager")
+            
+            # Fear & Greed Tools
+            fear_greed_service = get_fear_greed_service()
+            if hasattr(fear_greed_service, 'get_tool_definition'):
+                fear_greed_tool = FearGreedAgentTool(fear_greed_service)
+                self.registry.register_tool(fear_greed_tool, "market_data")
+                self.initialized_tools.append("FearGreedIndexService")
+            
+            # Telegram Tools
+            telegram_service = get_telegram_service()
+            if hasattr(telegram_service, 'get_tool_definition'):
+                telegram_tool = TelegramAgentTool(telegram_service)
+                self.registry.register_tool(telegram_tool, "communication")
+                self.initialized_tools.append("TelegramBotService")
             
             logger.info(f"Initialized {len(self.initialized_tools)} agent tools: {', '.join(self.initialized_tools)}")
             
@@ -470,6 +486,55 @@ class CacheAgentTool(BaseAgentTool):
     
     async def get_stats(self, **kwargs):
         return await self.manager.get_stats()
+
+
+class FearGreedAgentTool(BaseAgentTool):
+    """Agent tool adapter for FearGreedIndexService"""
+    
+    def __init__(self, service):
+        super().__init__("FearGreedIndexService")
+        self.service = service
+    
+    def get_tool_definition(self) -> Dict[str, Any]:
+        return self.service.get_tool_definition()
+    
+    def get_available_methods(self) -> List[str]:
+        return ["get_current_index", "get_historical_data", "get_market_sentiment_analysis"]
+    
+    async def get_current_index(self, **kwargs):
+        return await self.service.get_current_index(**kwargs)
+    
+    async def get_historical_data(self, **kwargs):
+        return await self.service.get_historical_data(**kwargs)
+    
+    async def get_market_sentiment_analysis(self, **kwargs):
+        return await self.service.get_market_sentiment_analysis(**kwargs)
+
+
+class TelegramAgentTool(BaseAgentTool):
+    """Agent tool adapter for TelegramBotService"""
+    
+    def __init__(self, service):
+        super().__init__("TelegramBotService")
+        self.service = service
+    
+    def get_tool_definition(self) -> Dict[str, Any]:
+        return self.service.get_tool_definition()
+    
+    def get_available_methods(self) -> List[str]:
+        return ["send_message", "send_photo", "get_bot_info", "create_inline_keyboard"]
+    
+    async def send_message(self, **kwargs):
+        return await self.service.send_message(**kwargs)
+    
+    async def send_photo(self, **kwargs):
+        return await self.service.send_photo(**kwargs)
+    
+    async def get_bot_info(self, **kwargs):
+        return await self.service.get_bot_info(**kwargs)
+    
+    def create_inline_keyboard(self, **kwargs):
+        return self.service.create_inline_keyboard(**kwargs)
 
 
 # Global service manager instance
