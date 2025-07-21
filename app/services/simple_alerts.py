@@ -61,12 +61,14 @@ class SimpleAlertSystem:
         # Try to initialize Redis for caching using CacheHelper
         self.redis_client = None
         try:
-            from ..helpers.cache_helpers import CacheHelper
-            if settings.REDIS_URL:
-                import redis
-                self.redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
-                self.redis_client.ping()
-                logger.info("✅ Redis available for caching via CacheHelper")
+            # Disable Redis for now to avoid connection issues
+            # from ..helpers.cache_helpers import CacheHelper
+            # if settings.REDIS_URL:
+            #     import redis
+            #     self.redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
+            #     self.redis_client.ping()
+            #     logger.info("✅ Redis available for caching via CacheHelper")
+            logger.info("ℹ️ Redis disabled, using in-memory storage only")
         except Exception as e:
             logger.info(f"ℹ️ Redis not available, using in-memory storage: {e}")
     
