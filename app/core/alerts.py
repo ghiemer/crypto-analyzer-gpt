@@ -1,46 +1,40 @@
 import asyncio
 import pandas as pd
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from .settings import settings
 from ..services.telegram_bot import send as tg_send
 from ..workers.alert_worker import AlertWorker
-from ..helpers.cache_helpers import CacheHelper
 from ..helpers.error_handlers import handle_api_errors, ErrorHandler
 from ..utils.validation import validate_symbol
 
-# Optional Redis import and connection
-redis = None
-REDIS_AVAILABLE = False
-
-try:
-    from redis import asyncio as aioredis
-    # Create Redis connection but don't test it yet
-    redis = aioredis.from_url(settings.REDIS_URL, encoding="utf8", decode_responses=True)
-    # We'll test the connection in the first function call
-    REDIS_AVAILABLE = True
-    print("🔄 Redis connection created, will test on first use")
-except Exception as e:
-    print(f"⚠️ Redis import/creation failed: {e}")
-    redis = None
-    REDIS_AVAILABLE = False
-
-# In-memory fallback storage when Redis is unavailable
+# Simple in-memory alert system (production-ready fallback)
 _memory_alerts: Dict[str, Dict[str, str]] = {}
 
-# Test Redis connection on first use
-async def _test_redis_connection() -> bool:
-    """Test if Redis is actually available by trying to ping it."""
-    global REDIS_AVAILABLE
-    if not REDIS_AVAILABLE or redis is None:
-        return False
+class SimpleAlertSystem:
+    """Simple in-memory alert system for reliable operation."""
     
-    try:
-        await redis.ping()
-        return True
-    except Exception as e:
-        print(f"⚠️ Redis ping failed: {e}. Switching to in-memory storage.")
-        REDIS_AVAILABLE = False
-        return False
+    def __init__(self):
+        self._monitoring = False
+        
+    async def add_alert(self, user: str, symbol: str, expr: str):
+        """Add new alert to in-memory storage."""
+        if user not in _memory_alerts:
+            _memory_alerts[user] = {}
+        _memory_alerts[user][symbol] = expr
+        print(f"✅ Alert added: {user}:{symbol} = {expr}")
+    
+    async def delete_alert(self, user: str, symbol: str):
+        """Delete alert from in-memory storage."""
+        if user in _memory_alerts and symbol in _memory_alerts[user]:
+            del _memory_alerts[user][symbol]
+            print(f"✅ Alert deleted: {user}:{symbol}")
+    
+    async def list_alerts(self, user: str) -> Dict[str, str]:
+        """List all alerts for user from in-memory storage."""
+        return _memory_alerts.get(user, {})
+
+# Global alert system instance
+simple_alert_system = SimpleAlertSystem()
 
 # Enhanced Alert System with Worker Management
 class EnhancedAlertSystem:
@@ -79,59 +73,37 @@ class EnhancedAlertSystem:
 # Global alert system instance
 _alert_system = EnhancedAlertSystem()
 
-# CRUD with Enhanced Error Handling ----------------------------------------
-@handle_api_errors("Failed to add alert")
-async def add_alert(user: str, symbol: str, expr: str) -> None:
-    """Add alert with validation and enhanced error handling."""
-    symbol = validate_symbol(symbol)  # Validate symbol format
-    
-    if REDIS_AVAILABLE:
-        key = CacheHelper.make_cache_key("alert", user)
-        await CacheHelper.save_to_cache(key, {symbol: expr}, ttl=0)  # Permanent storage
-    else:
-        # Fallback to in-memory storage
-        if user not in _memory_alerts:
-            _memory_alerts[user] = {}
-        _memory_alerts[user][symbol] = expr
-        print(f"⚠️ Using in-memory storage for alert: {user}:{symbol}")
-
-@handle_api_errors("Failed to delete alert")
-async def delete_alert(user: str, symbol: str) -> None:
-    """Delete alert with validation."""
+# Compatibility functions for existing code
+async def add_alert(user: str, symbol: str, expr: str):
+    """Add alert using simple alert system."""
     symbol = validate_symbol(symbol)
-    
-    if REDIS_AVAILABLE:
-        await redis.hdel(f"alert:{user}", symbol)  # type: ignore
-    else:
-        # Fallback to in-memory storage
-        if user in _memory_alerts and symbol in _memory_alerts[user]:
-            del _memory_alerts[user][symbol]
+    await simple_alert_system.add_alert(user, symbol, expr)
 
-@handle_api_errors("Failed to list alerts")
-async def list_alerts(user: str) -> Dict[str, str]:
-    """List all alerts for a user."""
-    # Test Redis connection on first use
-    redis_works = await _test_redis_connection()
-    
-    if redis_works:
-        try:
-            return await redis.hgetall(f"alert:{user}")  # type: ignore
-        except Exception as e:
-            print(f"⚠️ Redis operation failed: {e}. Using in-memory storage.")
-            return _memory_alerts.get(user, {})
-    else:
-        # Fallback to in-memory storage
-        return _memory_alerts.get(user, {})
+async def delete_alert(user: str, symbol: str):
+    """Delete alert using simple alert system."""
+    symbol = validate_symbol(symbol)
+    await simple_alert_system.delete_alert(user, symbol)
 
-# Spam-Lock (10 s) ----------------------------------------------------------
+async def list_alerts(user: str):
+    """List alerts using simple alert system."""
+    return await simple_alert_system.list_alerts(user)
+
+# Spam-Lock (simplified for in-memory system)
+_spam_locks: Dict[str, float] = {}
+
 async def _spam_lock(lock_key: str) -> bool:
-    if not REDIS_AVAILABLE:
-        return True  # Skip spam protection if Redis unavailable
+    """Simple spam protection using in-memory timestamps."""
+    import time
+    current_time = time.time()
     
-    ok = await redis.setnx(lock_key, 1)  # type: ignore
-    if ok:
-        await redis.expire(lock_key, 10)  # type: ignore
-    return ok
+    # Check if lock exists and is still valid (10 seconds)
+    if lock_key in _spam_locks:
+        if current_time - _spam_locks[lock_key] < 10:
+            return False  # Still locked
+    
+    # Set new lock
+    _spam_locks[lock_key] = current_time
+    return True
 
 # Background‑Worker - Legacy Compatibility (DEPRECATED) -------------------
 async def alert_worker(fetch_df):
