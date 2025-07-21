@@ -4,7 +4,7 @@
 # Replace YOUR_API_KEY with your actual API key
 
 BASE_URL="https://crypto-analyzer-gpt.onrender.com"
-API_KEY="YOUR_API_KEY"  # Replace with your actual API key
+API_KEY="${API_KEY:-YOUR_API_KEY}"  # Use environment variable or fallback
 
 # Colors for output
 RED='\033[0;31m'
