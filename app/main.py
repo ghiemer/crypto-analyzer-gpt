@@ -9,8 +9,9 @@ from .core.cache import init_cache
 from .core.database import init_db
 from .core.alerts import alert_worker
 from .core.logging_config import setup_enhanced_logging
-from .services.bitget import candles          # fetch_df
-from .routes import api_router, telegram, gpt_alerts, live_alerts, stream
+from .core.agent_framework import get_agent_service_manager
+from .services.bitget import candles          # fetch_df (backward compatibility)
+from .routes import api_router, telegram, gpt_alerts, live_alerts, stream, agent_test
 from .services.simple_alerts import start_alert_monitoring, stop_alert_monitoring
 from .services.universal_stream import start_stream_service, stop_stream_service
 
@@ -30,6 +31,15 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"⚠️ Database initialization failed: {e}")
         print("🔄 Continuing without database...")
+    
+    # Initialize Agent Framework (new classbased system)
+    try:
+        agent_manager = get_agent_service_manager()
+        await agent_manager.initialize_all_tools()
+        print("✅ Agent Framework initialized successfully")
+    except Exception as e:
+        print(f"⚠️ Agent Framework initialization failed: {e}")
+        print("🔄 Continuing with legacy system...")
     
     # Start old alert system
     alert_task = asyncio.create_task(alert_worker(lambda sym: candles(sym, limit=50)))
@@ -54,6 +64,14 @@ async def lifespan(app: FastAPI):
     
     # Stop universal stream service
     await stop_stream_service()
+    
+    # Shutdown Agent Framework
+    try:
+        agent_manager = get_agent_service_manager()
+        await agent_manager.shutdown_all_tools()
+        print("✅ Agent Framework shutdown completed")
+    except Exception as e:
+        print(f"⚠️ Agent Framework shutdown warning: {e}")
 
 app = FastAPI(
     title="Crypto Signal API",
@@ -100,6 +118,7 @@ app.include_router(telegram.webhook_router)  # No auth for webhook
 app.include_router(gpt_alerts.router, dependencies=[Depends(verify)])
 app.include_router(live_alerts.router, dependencies=[Depends(verify)])
 app.include_router(stream.router, dependencies=[Depends(verify)])
+app.include_router(agent_test.router, dependencies=[Depends(verify)])  # New Agent Framework routes
 
 # Global exception handler for debugging
 @app.exception_handler(Exception)
