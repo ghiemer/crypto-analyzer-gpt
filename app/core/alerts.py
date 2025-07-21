@@ -85,7 +85,7 @@ async def delete_alert(user: str, symbol: str):
     await simple_alert_system.delete_alert(user, symbol)
 
 async def list_alerts(user: str):
-    """List alerts using simple alert system."""
+    """List alerts using simple alert system - FIXED VERSION."""
     return await simple_alert_system.list_alerts(user)
 
 # Spam-Lock (simplified for in-memory system)
