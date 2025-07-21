@@ -2,6 +2,7 @@
 
 > Professional cryptocurrency analysis API with real-time market data, technical indicators, and AI-powered insights.
 
+[![Version](https://img.shields.io/badge/Version-2.0.0-blue.svg)](https://github.com/ghiemer/crypto-analyzer-gpt)
 [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-2.0.0-green.svg)](https://fastapi.tiangolo.com/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
