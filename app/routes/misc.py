@@ -1,6 +1,8 @@
 from fastapi import APIRouter, HTTPException
 from ..services.feargreed import fear_greed
 from ..core.settings import settings
+from ..core.cache import get_cache_worker_status
+from ..core.alerts import get_alert_system_status
 from redis import asyncio as aioredis
 import httpx
 
@@ -44,6 +46,26 @@ async def status():
                 status["status"] = "degraded"
     except Exception as e:
         status["services"]["bitget"] = f"unhealthy: {str(e)}"
+        status["status"] = "degraded"
+    
+    # Enhanced Worker Status Monitoring
+    try:
+        # Alert System Status
+        alert_status = get_alert_system_status()
+        status["services"]["alert_system"] = {
+            "status": "healthy" if alert_status.get("is_running") else "stopped",
+            "details": alert_status
+        }
+        
+        # Cache Cleanup Worker Status
+        cache_worker_status = get_cache_worker_status()
+        status["services"]["cache_cleanup_worker"] = {
+            "status": "healthy" if cache_worker_status.get("is_running") else "stopped", 
+            "details": cache_worker_status
+        }
+        
+    except Exception as e:
+        status["services"]["workers"] = f"error: {str(e)}"
         status["status"] = "degraded"
     
     return status

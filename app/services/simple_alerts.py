@@ -58,35 +58,43 @@ class SimpleAlertSystem:
         self.price_streams: Dict[str, asyncio.Task] = {}  # Active price streams per symbol
         self.last_alert_times: Dict[str, datetime] = {}  # Prevent spam
         
-        # Try to initialize Redis for caching
+        # Try to initialize Redis for caching using CacheHelper
         self.redis_client = None
         try:
-            import redis
+            from ..helpers.cache_helpers import CacheHelper
             if settings.REDIS_URL:
+                import redis
                 self.redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
                 self.redis_client.ping()
-                logger.info("✅ Redis available for caching")
+                logger.info("✅ Redis available for caching via CacheHelper")
         except Exception as e:
             logger.info(f"ℹ️ Redis not available, using in-memory storage: {e}")
     
     def create_alert(self, symbol: str, alert_type: AlertType, target_price: float, description: str = "") -> str:
         """Create a new alert and start monitoring via universal stream"""
-        alert = SimpleAlert(symbol, alert_type, target_price, description)
+        from ..utils.validation import validate_symbol
+        from ..helpers.cache_helpers import CacheHelper
+        
+        # Validate symbol using utils
+        validated_symbol = validate_symbol(symbol)
+        alert = SimpleAlert(validated_symbol, alert_type, target_price, description)
         self.alerts[alert.id] = alert
         
-        # Try to cache in Redis
+        # Try to cache using CacheHelper for consistency
         if self.redis_client:
             try:
+                cache_key = CacheHelper.make_cache_key("simple_alert", alert.id)
+                # Use asyncio-compatible cache helper in future
                 self.redis_client.set(f"alert:{alert.id}", json.dumps(alert.to_dict()))
                 self.redis_client.sadd("active_alerts", alert.id)
             except Exception as e:
                 logger.warning(f"Redis cache failed: {e}")
         
-        logger.info(f"📝 Alert created: {symbol} {alert_type.value} @ ${target_price}")
+        logger.info(f"📝 Alert created: {validated_symbol} {alert_type.value} @ ${target_price}")
         
         # Subscribe to universal stream service for this symbol
         if self.running:
-            asyncio.create_task(self._subscribe_to_stream(symbol, alert))
+            asyncio.create_task(self._subscribe_to_stream(validated_symbol, alert))
         
         return alert.id
 

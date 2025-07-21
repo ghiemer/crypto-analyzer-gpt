@@ -9,6 +9,9 @@ from functools import wraps
 from typing import Dict, List, Optional
 from fastapi import HTTPException, Request, status
 from .settings import settings
+from ..helpers.response_helpers import ResponseHelper
+from ..helpers.error_handlers import handle_api_errors, ErrorHandler
+from ..utils.validation import validate_symbol as utils_validate_symbol
 
 class RateLimiter:
     """Simple in-memory rate limiting implementation"""
@@ -78,35 +81,46 @@ def validate_input_length(value: str, max_length: int = 100) -> str:
         )
     return value
 
+@handle_api_errors("Symbol validation failed")
 def sanitize_symbol(symbol: str) -> str:
-    """Sanitizes trading symbol for safe usage"""
-    # Only allow alphanumeric characters
-    sanitized = "".join(c for c in symbol.upper() if c.isalnum())
+    """
+    Sanitizes trading symbol for safe usage.
     
-    if not sanitized:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid symbol format"
-        )
+    DEPRECATED: This function now delegates to utils.validation.validate_symbol()
+    for consistency across the application.
+    """
+    import warnings
+    warnings.warn(
+        "sanitize_symbol() is deprecated. Use utils.validation.validate_symbol() directly.",
+        DeprecationWarning,
+        stacklevel=2
+    )
     
-    return validate_input_length(sanitized, 20)
+    # Delegate to utils validation for consistency
+    return utils_validate_symbol(symbol)
 
 def check_rate_limit(request: Request) -> None:
-    """Checks rate limit for request"""
+    """Checks rate limit for request with enhanced error responses"""
     if settings.ENVIRONMENT == "development":
         return  # No rate limiting in development
     
     client_ip = get_client_ip(request)
     
     if not rate_limiter.is_allowed(client_ip):
+        # Enhanced response using ResponseHelper
+        error_response = ResponseHelper.rate_limited(
+            "API rate limit exceeded. Please try again later."
+        )
+        
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Rate limit exceeded",
+            detail=error_response.get("message", "Rate limit exceeded"),
             headers={
                 "Retry-After": str(settings.RATE_LIMIT_WINDOW),
                 "X-RateLimit-Limit": str(settings.RATE_LIMIT_REQUESTS),
                 "X-RateLimit-Remaining": "0",
-                "X-RateLimit-Reset": str(int(time.time()) + settings.RATE_LIMIT_WINDOW)
+                "X-RateLimit-Reset": str(int(time.time()) + settings.RATE_LIMIT_WINDOW),
+                "X-API-Version": error_response.get("api_version", "1.0")
             }
         )
 

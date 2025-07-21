@@ -5,9 +5,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from .core.settings import settings
-from .core.cache import init_cache
+from .core.cache import init_cache, shutdown_cache, get_cache_worker_status
 from .core.database import init_db
-from .core.alerts import alert_worker
+from .core.alerts import alert_worker, initialize_alert_system, start_alert_monitoring, stop_alert_monitoring, get_alert_system_status
 from .core.logging_config import setup_enhanced_logging
 from .core.agent_framework import get_agent_service_manager
 from .services.bitget import candles          # fetch_df (backward compatibility)
@@ -41,8 +41,16 @@ async def lifespan(app: FastAPI):
         print(f"⚠️ Agent Framework initialization failed: {e}")
         print("🔄 Continuing with legacy system...")
     
-    # Start old alert system
-    alert_task = asyncio.create_task(alert_worker(lambda sym: candles(sym, limit=50)))
+    # Initialize Enhanced Alert System
+    try:
+        await initialize_alert_system(lambda sym: candles(sym, limit=50))
+        await start_alert_monitoring()
+        print("✅ Enhanced Alert System initialized successfully")
+    except Exception as e:
+        print(f"⚠️ Enhanced Alert System initialization failed: {e}")
+        print("🔄 Falling back to legacy alert system...")
+        # Fallback to legacy system
+        alert_task = asyncio.create_task(alert_worker(lambda sym: candles(sym, limit=50)))
     
     # Start universal stream service
     await start_stream_service()
@@ -52,15 +60,18 @@ async def lifespan(app: FastAPI):
     
     yield
     
-    # Shutdown
-    alert_task.cancel()
+    # Shutdown Enhanced Alert System
     try:
-        await alert_task
-    except asyncio.CancelledError:
-        pass
+        await stop_alert_monitoring()
+        print("✅ Enhanced Alert System shutdown completed")
+    except Exception as e:
+        print(f"⚠️ Enhanced Alert System shutdown warning: {e}")
     
-    # Stop alert monitoring
+    # Stop alert monitoring (legacy compatibility)
     await stop_alert_monitoring()
+    
+    # Shutdown cache with cleanup worker
+    await shutdown_cache()
     
     # Stop universal stream service
     await stop_stream_service()

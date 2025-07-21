@@ -9,6 +9,9 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime
 
 from ..services.simple_alerts import get_alert_system, AlertType, SimpleAlert
+from ..helpers.error_handlers import handle_api_errors
+from ..helpers.response_helpers import ResponseHelper
+from ..utils.validation import validate_symbol
 
 router = APIRouter(prefix="/gpt-alerts", tags=["GPT Alerts"])
 
@@ -34,6 +37,7 @@ class AlertStats(BaseModel):
     price_cache: Dict[str, float]
 
 @router.post("/create", response_model=Dict[str, str])
+@handle_api_errors("Failed to create alert")
 async def create_alert(request: CreateAlertRequest):
     """
     Create a new price alert
@@ -43,78 +47,66 @@ async def create_alert(request: CreateAlertRequest):
     - PRICE_BELOW: Alert when price goes below target  
     - BREAKOUT: Alert when price breaks above resistance level
     """
-    try:
-        alert_system = get_alert_system()
-        
-        alert_id = alert_system.create_alert(
-            symbol=request.symbol.upper(),
-            alert_type=request.alert_type,
-            target_price=request.target_price,
-            description=request.description or ""
-        )
-        
-        return {
-            "status": "success",
-            "alert_id": alert_id,
-            "message": f"Alert created for {request.symbol} {request.alert_type.value} @ ${request.target_price}"
-        }
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to create alert: {str(e)}")
+    alert_system = get_alert_system()
+    
+    # Validate symbol using utils
+    validated_symbol = validate_symbol(request.symbol)
+    
+    alert_id = alert_system.create_alert(
+        symbol=validated_symbol,
+        alert_type=request.alert_type,
+        target_price=request.target_price,
+        description=request.description or ""
+    )
+    
+    return ResponseHelper.success({
+        "alert_id": alert_id,
+        "message": f"Alert created for {validated_symbol} {request.alert_type.value} @ ${request.target_price}"
+    })
 
 @router.get("/list", response_model=List[AlertResponse])
+@handle_api_errors("Failed to get alerts")
 async def get_active_alerts():
     """Get all active alerts"""
-    try:
-        alert_system = get_alert_system()
-        alerts = alert_system.get_active_alerts()
-        
-        return [
-            AlertResponse(
-                id=alert.id,
-                symbol=alert.symbol,
-                alert_type=alert.alert_type.value,
-                target_price=alert.target_price,
-                description=alert.description,
-                created_at=alert.created_at,
-                triggered=alert.triggered
-            )
-            for alert in alerts
-        ]
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get alerts: {str(e)}")
+    alert_system = get_alert_system()
+    alerts = alert_system.get_active_alerts()
+    
+    return [
+        AlertResponse(
+            id=alert.id,
+            symbol=alert.symbol,
+            alert_type=alert.alert_type.value,
+            target_price=alert.target_price,
+            description=alert.description,
+            created_at=alert.created_at,
+            triggered=alert.triggered
+        )
+        for alert in alerts
+    ]
 
 @router.get("/stats", response_model=AlertStats)
+@handle_api_errors("Failed to get stats")
 async def get_alert_stats():
     """Get alert statistics"""
-    try:
-        alert_system = get_alert_system()
-        stats = alert_system.get_stats()
-        
-        return AlertStats(
-            total_active=stats["total_active"],
-            by_symbol=stats["by_symbol"],
-            price_cache=stats["price_cache"]
-        )
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get stats: {str(e)}")
+    alert_system = get_alert_system()
+    stats = alert_system.get_stats()
+    
+    return AlertStats(
+        total_active=stats["total_active"],
+        by_symbol=stats["by_symbol"],
+        price_cache=stats["price_cache"]
+    )
 
 @router.delete("/delete/{alert_id}")
+@handle_api_errors("Failed to delete alert")
 async def delete_alert(alert_id: str):
     """Delete an alert"""
-    try:
-        alert_system = get_alert_system()
-        alert_system.delete_alert(alert_id)
-        
-        return {
-            "status": "success",
-            "message": f"Alert {alert_id} deleted"
-        }
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to delete alert: {str(e)}")
+    alert_system = get_alert_system()
+    alert_system.delete_alert(alert_id)
+    
+    return ResponseHelper.success({
+        "message": f"Alert {alert_id} deleted"
+    })
 
 @router.get("/alert/{alert_id}", response_model=AlertResponse)
 async def get_alert(alert_id: str):
