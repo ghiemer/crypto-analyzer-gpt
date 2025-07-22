@@ -5,7 +5,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from .core.settings import settings
-from .core.cache import init_cache, shutdown_cache, get_cache_worker_status
 from .core.database import init_db
 from .core.alerts import alert_worker, initialize_alert_system, start_alert_monitoring, stop_alert_monitoring, get_alert_system_status
 from .core.logging_config import setup_enhanced_logging
@@ -23,7 +22,11 @@ log.setLevel(settings.LOG_LEVEL)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    await init_cache()
+    
+    # Initialize cache only if enabled
+    if settings.CACHE_ENABLED:
+        from .core.cache import init_cache
+        await init_cache()
     
     # Initialize database (with error handling)
     try:
@@ -68,7 +71,9 @@ async def lifespan(app: FastAPI):
     yield  # Application is running
     
     # Shutdown
-    await shutdown_cache()
+    if settings.CACHE_ENABLED:
+        from .core.cache import shutdown_cache
+        await shutdown_cache()
     
     # Stop Alert Monitoring
     try:
