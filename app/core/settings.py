@@ -2,6 +2,19 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field, field_validator
 import os
 
+# ENVIRONMENT DEBUG LOGGING
+print(f"🔍 SETTINGS DEBUG: Loading settings...")
+print(f"🔍 SETTINGS DEBUG: Environment = {os.getenv('ENVIRONMENT', 'NOT SET')}")
+print(f"🔍 SETTINGS DEBUG: PORT = {os.getenv('PORT', 'NOT SET')}")
+print(f"🔍 SETTINGS DEBUG: API_KEY = {'SET' if os.getenv('API_KEY') else 'NOT SET'}")
+print(f"🔍 SETTINGS DEBUG: DATABASE_URL = {'SET' if os.getenv('DATABASE_URL') else 'NOT SET'}")
+print(f"🔍 SETTINGS DEBUG: All env vars starting with API, PORT, DB:")
+for key, value in os.environ.items():
+    if any(prefix in key.upper() for prefix in ['API', 'PORT', 'DB', 'REDIS', 'TG_']):
+        # Hide sensitive values but show if they're set
+        display_value = f"SET({len(value)} chars)" if value else "NOT SET"
+        print(f"   {key} = {display_value}")
+
 class Settings(BaseSettings):
     # Required - loaded from environment variable
     # Must be set in production, no default value for security
@@ -10,10 +23,15 @@ class Settings(BaseSettings):
     @field_validator('API_KEY')
     @classmethod
     def validate_api_key(cls, v):
+        print(f"🔍 API_KEY DEBUG: Validating API_KEY = '{v[:10]}...' (length: {len(v) if v else 0})")
         if not v or v.strip() == "":
+            print(f"❌ API_KEY DEBUG: API_KEY is empty or not set!")
+            print(f"🔍 API_KEY DEBUG: Environment API_KEY = {os.getenv('API_KEY', 'NOT SET')}")
             raise ValueError("API_KEY environment variable must be set for security reasons")
         if len(v) < 10:
+            print(f"❌ API_KEY DEBUG: API_KEY too short: {len(v)} characters")
             raise ValueError("API_KEY must be at least 10 characters long for security")
+        print(f"✅ API_KEY DEBUG: API_KEY validation successful")
         return v
 
     # Server Configuration
