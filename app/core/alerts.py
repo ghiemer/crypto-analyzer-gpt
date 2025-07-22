@@ -9,32 +9,55 @@ from ..utils.validation import validate_symbol
 
 # Simple in-memory alert system (production-ready fallback)
 _memory_alerts: Dict[str, Dict[str, str]] = {}
+print(f"🔍 DEBUG: alerts.py loaded - _memory_alerts initialized: {_memory_alerts}")
+print(f"🔍 DEBUG: alerts.py module name: {__name__}")
+print(f"🔍 DEBUG: alerts.py file path: {__file__}")
+
+# Check for any Redis imports in the entire module
+import sys
+current_module = sys.modules[__name__]
+module_dict = dir(current_module)
+redis_imports = [item for item in module_dict if 'redis' in item.lower()]
+print(f"🔍 DEBUG: Redis-related items in module: {redis_imports}")
 
 class SimpleAlertSystem:
     """Simple in-memory alert system for reliable operation."""
     
     def __init__(self):
         self._monitoring = False
+        print(f"🔍 DEBUG: SimpleAlertSystem.__init__ called")
+        print(f"🔍 DEBUG: SimpleAlertSystem module: {self.__class__.__module__}")
         
     async def add_alert(self, user: str, symbol: str, expr: str):
         """Add new alert to in-memory storage."""
+        print(f"🔍 DEBUG: SimpleAlertSystem.add_alert called: user='{user}', symbol='{symbol}', expr='{expr}'")
         if user not in _memory_alerts:
             _memory_alerts[user] = {}
         _memory_alerts[user][symbol] = expr
         print(f"✅ Alert added: {user}:{symbol} = {expr}")
+        print(f"🔍 DEBUG: _memory_alerts now: {_memory_alerts}")
     
     async def delete_alert(self, user: str, symbol: str):
         """Delete alert from in-memory storage."""
+        print(f"🔍 DEBUG: SimpleAlertSystem.delete_alert called: user='{user}', symbol='{symbol}'")
         if user in _memory_alerts and symbol in _memory_alerts[user]:
             del _memory_alerts[user][symbol]
             print(f"✅ Alert deleted: {user}:{symbol}")
+        print(f"🔍 DEBUG: _memory_alerts after delete: {_memory_alerts}")
     
     async def list_alerts(self, user: str) -> Dict[str, str]:
         """List all alerts for user from in-memory storage."""
-        return _memory_alerts.get(user, {})
+        print(f"🔍 DEBUG: SimpleAlertSystem.list_alerts called: user='{user}'")
+        print(f"🔍 DEBUG: Current _memory_alerts: {_memory_alerts}")
+        result = _memory_alerts.get(user, {})
+        print(f"🔍 DEBUG: SimpleAlertSystem.list_alerts returning: {result}")
+        return result
 
 # Global alert system instance
 simple_alert_system = SimpleAlertSystem()
+print(f"🔍 DEBUG: simple_alert_system created: {simple_alert_system}")
+print(f"🔍 DEBUG: simple_alert_system type: {type(simple_alert_system)}")
+print(f"🔍 DEBUG: simple_alert_system methods: {[m for m in dir(simple_alert_system) if not m.startswith('_')]}")
 
 # Enhanced Alert System with Worker Management
 class EnhancedAlertSystem:
@@ -86,7 +109,45 @@ async def delete_alert(user: str, symbol: str):
 
 async def list_alerts(user: str):
     """List alerts using simple alert system - FIXED VERSION."""
-    return await simple_alert_system.list_alerts(user)
+    import traceback
+    import sys
+    import os
+    
+    # COMPREHENSIVE ERROR LOGGING FOR DEBUGGING
+    print(f"🔍 DEBUG: list_alerts called with user='{user}'")
+    print(f"🔍 DEBUG: Python path: {sys.path}")
+    print(f"🔍 DEBUG: Current working directory: {os.getcwd()}")
+    print(f"🔍 DEBUG: File location: {__file__}")
+    print(f"🔍 DEBUG: Function location: {list_alerts.__module__}.{list_alerts.__name__}")
+    print(f"🔍 DEBUG: simple_alert_system type: {type(simple_alert_system)}")
+    print(f"🔍 DEBUG: simple_alert_system location: {simple_alert_system.__class__.__module__}")
+    
+    try:
+        print(f"🔍 DEBUG: About to call simple_alert_system.list_alerts('{user}')")
+        result = await simple_alert_system.list_alerts(user)
+        print(f"🔍 DEBUG: simple_alert_system.list_alerts returned: {result}")
+        print(f"🔍 DEBUG: Result type: {type(result)}")
+        return result
+    except Exception as e:
+        print(f"❌ ERROR in list_alerts: {e}")
+        print(f"❌ ERROR type: {type(e)}")
+        print(f"❌ ERROR args: {e.args}")
+        print(f"❌ FULL TRACEBACK:")
+        traceback.print_exc()
+        
+        # Check if there are any Redis imports or references
+        import inspect
+        frame = inspect.currentframe()
+        try:
+            while frame:
+                print(f"🔍 STACK FRAME: {frame.f_code.co_filename}:{frame.f_lineno} in {frame.f_code.co_name}")
+                locals_info = {k: str(type(v)) for k, v in frame.f_locals.items() if not k.startswith('_')}
+                print(f"   Locals: {locals_info}")
+                frame = frame.f_back
+        finally:
+            del frame
+        
+        raise e
 
 # Spam-Lock (simplified for in-memory system)
 _spam_locks: Dict[str, float] = {}
