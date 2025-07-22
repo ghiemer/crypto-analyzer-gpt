@@ -354,9 +354,9 @@ class AgentServiceManager:
         
         from ..services.bitget_client import get_bitget_client
         from ..core.indicators_service import get_indicator_service
-        from ..core.cache_manager import get_cache_manager
         from ..services.feargreed_service import get_fear_greed_service
         from ..services.telegram_service import get_telegram_service
+        from .settings import settings
         
         # Initialize and register tools
         try:
@@ -375,13 +375,15 @@ class AgentServiceManager:
                 self.registry.register_tool(indicator_tool, "technical_analysis")
                 self.initialized_tools.append("TechnicalIndicatorService")
             
-            # Cache Tools
-            cache_manager = get_cache_manager()
-            await cache_manager.initialize()
-            if hasattr(cache_manager, 'get_tool_definition'):
-                cache_tool = CacheAgentTool(cache_manager)
-                self.registry.register_tool(cache_tool, "cache")
-                self.initialized_tools.append("CacheManager")
+            # Cache Tools - Only if cache is enabled
+            if settings.CACHE_ENABLED:
+                from ..core.cache_manager import get_cache_manager
+                cache_manager = get_cache_manager()
+                await cache_manager.initialize()
+                if hasattr(cache_manager, 'get_tool_definition'):
+                    cache_tool = CacheAgentTool(cache_manager)
+                    self.registry.register_tool(cache_tool, "cache")
+                    self.initialized_tools.append("CacheManager")
             
             # Fear & Greed Tools
             fear_greed_service = get_fear_greed_service()
