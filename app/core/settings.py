@@ -36,7 +36,7 @@ class Settings(BaseSettings):
 
     # Server Configuration
     HOST: str = "0.0.0.0"
-    PORT: int = int(os.getenv("PORT", "8000"))  # Use Render's PORT env var
+    PORT: int = 8000
 
     # Logging
     LOG_LEVEL: str = "INFO"
