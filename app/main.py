@@ -22,6 +22,14 @@ log.setLevel(settings.LOG_LEVEL)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    import os
+    print(f"🔍 STARTUP DEBUG: App lifespan startup beginning")
+    print(f"🔍 STARTUP DEBUG: PORT environment variable = {os.environ.get('PORT', 'NOT SET')}")
+    print(f"🔍 STARTUP DEBUG: All PORT-related env vars:")
+    for key, value in os.environ.items():
+        if 'PORT' in key.upper():
+            print(f"   {key} = {value}")
+    
     # Startup
     await init_cache()
     
@@ -48,41 +56,45 @@ async def lifespan(app: FastAPI):
         print("✅ Enhanced Alert System initialized successfully")
     except Exception as e:
         print(f"⚠️ Enhanced Alert System initialization failed: {e}")
-        print("🔄 Falling back to legacy alert system...")
-        # Fallback to legacy system
-        alert_task = asyncio.create_task(alert_worker(lambda sym: candles(sym, limit=50)))
+        print("🔄 Continuing with Simple Alert System...")
+        
+        # Fallback to simple alerts
+        try:
+            await start_alert_monitoring()
+            print("✅ Simple Alert System started as fallback")
+        except Exception as fallback_error:
+            print(f"❌ Simple Alert System also failed: {fallback_error}")
     
-    # Start universal stream service
-    await start_stream_service()
-    
-    # Start alert monitoring system
-    monitoring_task = asyncio.create_task(start_alert_monitoring())
-    
-    yield
-    
-    # Shutdown Enhanced Alert System
+    # Start Universal Stream Service
     try:
-        await stop_alert_monitoring()
-        print("✅ Enhanced Alert System shutdown completed")
+        await start_stream_service()
+        print("✅ Universal Stream Service started")
     except Exception as e:
-        print(f"⚠️ Enhanced Alert System shutdown warning: {e}")
+        print(f"⚠️ Universal Stream Service failed: {e}")
+        print("🔄 Continuing without stream service...")
     
-    # Stop alert monitoring (legacy compatibility)
-    await stop_alert_monitoring()
+    print(f"🔍 STARTUP DEBUG: App startup completed, yielding control")
+    yield  # Application is running
     
-    # Shutdown cache with cleanup worker
+    print(f"🔍 SHUTDOWN DEBUG: App shutdown beginning")
+    # Shutdown
     await shutdown_cache()
     
-    # Stop universal stream service
-    await stop_stream_service()
-    
-    # Shutdown Agent Framework
+    # Stop Alert Monitoring
     try:
-        agent_manager = get_agent_service_manager()
-        await agent_manager.shutdown_all_tools()
-        print("✅ Agent Framework shutdown completed")
+        await stop_alert_monitoring()
+        print("✅ Alert monitoring stopped")
     except Exception as e:
-        print(f"⚠️ Agent Framework shutdown warning: {e}")
+        print(f"⚠️ Alert monitoring shutdown failed: {e}")
+    
+    # Stop Stream Service
+    try:
+        await stop_stream_service()
+        print("✅ Stream service stopped")
+    except Exception as e:
+        print(f"⚠️ Stream service shutdown failed: {e}")
+    
+    print(f"🔍 SHUTDOWN DEBUG: App shutdown completed")
 
 app = FastAPI(
     title="Crypto Signal API",
@@ -91,16 +103,30 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# PORT BINDING DEBUG - Log the app creation
+import os
+print(f"🔍 APP DEBUG: FastAPI app created")
+print(f"🔍 APP DEBUG: PORT environment at app creation = {os.environ.get('PORT', 'NOT SET')}")
+print(f"🔍 APP DEBUG: settings.PORT = {getattr(settings, 'PORT', 'NOT AVAILABLE')}")
+
+# Add CORS with more debug logging
+cors_origins = [
+    "https://chat.openai.com",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "https://crypto-analyzer-gpt.onrender.com",
+    "https://custom-gpt.ai",
+    "https://customgpt.ai",
+    "https://api.openai.com",
+]
+print(f"🔍 CORS DEBUG: Adding CORS middleware with origins: {cors_origins}")
+
 # CORS (CustomGPT + ChatGPT)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://chat.openai.com",
-        "https://chatgpt.com",
-        "https://custom-gpt.ai",
-        "https://customgpt.ai",
-        "https://api.openai.com",
-    ],
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -146,3 +172,48 @@ async def global_exception_handler(request: Request, exc: Exception):
             }
         }
     )
+
+# COMPREHENSIVE PORT BINDING DEBUGGING
+if __name__ == "__main__":
+    import uvicorn
+    import os
+    import socket
+    
+    # Get port from environment
+    port = int(os.environ.get("PORT", 8000))
+    host = "0.0.0.0"  # Render requires binding to 0.0.0.0
+    
+    print(f"🔍 PORT DEBUG: Starting server configuration")
+    print(f"🔍 PORT DEBUG: Environment PORT = {os.environ.get('PORT', 'NOT SET')}")
+    print(f"🔍 PORT DEBUG: Calculated port = {port}")
+    print(f"🔍 PORT DEBUG: Host = {host}")
+    print(f"🔍 PORT DEBUG: settings.PORT = {getattr(settings, 'PORT', 'NOT SET')}")
+    print(f"🔍 PORT DEBUG: All environment variables:")
+    for key, value in os.environ.items():
+        if 'PORT' in key.upper() or 'HOST' in key.upper():
+            print(f"   {key} = {value}")
+    
+    # Test if port is available
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.bind((host, port))
+        sock.close()
+        print(f"🔍 PORT DEBUG: Port {port} on {host} is available")
+    except Exception as e:
+        print(f"❌ PORT DEBUG: Port {port} on {host} is NOT available: {e}")
+    
+    print(f"🚀 PORT DEBUG: Starting uvicorn server on {host}:{port}")
+    
+    uvicorn.run(
+        "app.main:app",
+        host=host,
+        port=port,
+        log_level="info",
+        reload=False
+    )
+else:
+    # When running via uvicorn command, log the port info
+    import os
+    port = int(os.environ.get("PORT", 8000))
+    print(f"🔍 PORT DEBUG: App loaded via uvicorn command, PORT env = {port}")
+    print(f"🔍 PORT DEBUG: App should be accessible on 0.0.0.0:{port}")
