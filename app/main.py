@@ -22,14 +22,6 @@ log.setLevel(settings.LOG_LEVEL)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    import os
-    print(f"🔍 STARTUP DEBUG: App lifespan startup beginning")
-    print(f"🔍 STARTUP DEBUG: PORT environment variable = {os.environ.get('PORT', 'NOT SET')}")
-    print(f"🔍 STARTUP DEBUG: All PORT-related env vars:")
-    for key, value in os.environ.items():
-        if 'PORT' in key.upper():
-            print(f"   {key} = {value}")
-    
     # Startup
     await init_cache()
     
@@ -40,7 +32,7 @@ async def lifespan(app: FastAPI):
         print(f"⚠️ Database initialization failed: {e}")
         print("🔄 Continuing without database...")
     
-    # Initialize Agent Framework (new classbased system)
+    # Initialize Agent Framework
     try:
         agent_manager = get_agent_service_manager()
         await agent_manager.initialize_all_tools()
@@ -73,10 +65,8 @@ async def lifespan(app: FastAPI):
         print(f"⚠️ Universal Stream Service failed: {e}")
         print("🔄 Continuing without stream service...")
     
-    print(f"🔍 STARTUP DEBUG: App startup completed, yielding control")
     yield  # Application is running
     
-    print(f"🔍 SHUTDOWN DEBUG: App shutdown beginning")
     # Shutdown
     await shutdown_cache()
     
@@ -93,8 +83,6 @@ async def lifespan(app: FastAPI):
         print("✅ Stream service stopped")
     except Exception as e:
         print(f"⚠️ Stream service shutdown failed: {e}")
-    
-    print(f"🔍 SHUTDOWN DEBUG: App shutdown completed")
 
 app = FastAPI(
     title="Crypto Signal API",
@@ -103,13 +91,7 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# PORT BINDING DEBUG - Log the app creation
-import os
-print(f"🔍 APP DEBUG: FastAPI app created")
-print(f"🔍 APP DEBUG: PORT environment at app creation = {os.environ.get('PORT', 'NOT SET')}")
-print(f"🔍 APP DEBUG: settings.PORT = {getattr(settings, 'PORT', 'NOT AVAILABLE')}")
-
-# Add CORS with more debug logging
+# CORS (CustomGPT + ChatGPT)
 cors_origins = [
     "https://chat.openai.com",
     "http://localhost:8000",
@@ -121,9 +103,7 @@ cors_origins = [
     "https://customgpt.ai",
     "https://api.openai.com",
 ]
-print(f"🔍 CORS DEBUG: Adding CORS middleware with origins: {cors_origins}")
 
-# CORS (CustomGPT + ChatGPT)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
@@ -172,48 +152,3 @@ async def global_exception_handler(request: Request, exc: Exception):
             }
         }
     )
-
-# COMPREHENSIVE PORT BINDING DEBUGGING
-if __name__ == "__main__":
-    import uvicorn
-    import os
-    import socket
-    
-    # Get port from environment
-    port = int(os.environ.get("PORT", 8000))
-    host = "0.0.0.0"  # Render requires binding to 0.0.0.0
-    
-    print(f"🔍 PORT DEBUG: Starting server configuration")
-    print(f"🔍 PORT DEBUG: Environment PORT = {os.environ.get('PORT', 'NOT SET')}")
-    print(f"🔍 PORT DEBUG: Calculated port = {port}")
-    print(f"🔍 PORT DEBUG: Host = {host}")
-    print(f"🔍 PORT DEBUG: settings.PORT = {getattr(settings, 'PORT', 'NOT SET')}")
-    print(f"🔍 PORT DEBUG: All environment variables:")
-    for key, value in os.environ.items():
-        if 'PORT' in key.upper() or 'HOST' in key.upper():
-            print(f"   {key} = {value}")
-    
-    # Test if port is available
-    try:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.bind((host, port))
-        sock.close()
-        print(f"🔍 PORT DEBUG: Port {port} on {host} is available")
-    except Exception as e:
-        print(f"❌ PORT DEBUG: Port {port} on {host} is NOT available: {e}")
-    
-    print(f"🚀 PORT DEBUG: Starting uvicorn server on {host}:{port}")
-    
-    uvicorn.run(
-        "app.main:app",
-        host=host,
-        port=port,
-        log_level="info",
-        reload=False
-    )
-else:
-    # When running via uvicorn command, log the port info
-    import os
-    port = int(os.environ.get("PORT", 8000))
-    print(f"🔍 PORT DEBUG: App loaded via uvicorn command, PORT env = {port}")
-    print(f"🔍 PORT DEBUG: App should be accessible on 0.0.0.0:{port}")
