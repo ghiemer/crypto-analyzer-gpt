@@ -6,7 +6,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
 
-# Expose the port (Render will set PORT environment variable)
+# Expose the port (Render will set PORT environment variable) 
 EXPOSE $PORT
 
-CMD ["sh", "-c", "echo 'Starting with PORT='${PORT:-10000} && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-10000}"]
+# Start with comprehensive port binding logging and uvicorn configuration
+CMD ["sh", "-c", "echo 'Starting with PORT='${PORT:-10000} && echo 'Binding to 0.0.0.0:'${PORT:-10000} && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-10000} --workers 1 --timeout-keep-alive 30"]
